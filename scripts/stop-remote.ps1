@@ -1,16 +1,32 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-if (-not (Get-Command tailscale.exe -ErrorAction SilentlyContinue)) { throw 'tailscale.exe is not installed or is not on PATH.' }
-$Help = (& tailscale.exe funnel --help 2>&1 | Out-String)
-if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect the installed Tailscale Funnel commands.' }
-if ($Help -match '(?m)^\s*reset\s') {
-    & tailscale.exe funnel reset
+
+if (-not (Get-Command tailscale.exe -ErrorAction SilentlyContinue)) {
+    throw (
+        'tailscale.exe is not installed or is not on PATH. ' +
+        'Install Tailscale or open a new terminal after installation.'
+    )
 }
-elseif ($Help -match '(?i)\boff\b') {
-    & tailscale.exe funnel off
+
+# Run through cmd.exe so that normal native stderr output does not become a
+# terminating NativeCommandError in Windows PowerShell 5.1.
+$ResetOutput = & $env:ComSpec /d /s /c `
+    'tailscale.exe funnel reset 2>&1'
+
+$ResetExitCode = $LASTEXITCODE
+$ResetText = ($ResetOutput | Out-String).Trim()
+
+if (-not [string]::IsNullOrWhiteSpace($ResetText)) {
+    Write-Host $ResetText
 }
-else {
-    throw 'The installed Tailscale CLI exposes neither Funnel reset nor off. Run tailscale funnel --help and disable Funnel using the documented command.'
+
+if ($ResetExitCode -ne 0) {
+    throw (
+        "Tailscale Funnel could not be disabled.`n" +
+        "Exit code: $ResetExitCode`n" +
+        "$ResetText"
+    )
 }
-if ($LASTEXITCODE -ne 0) { throw 'Tailscale Funnel could not be disabled.' }
+
+Write-Host 'BATTERYAI_REMOTE_STOPPED=TRUE'
 Write-Host 'BatteryAI Funnel exposure is off.'

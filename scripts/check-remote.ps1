@@ -3,7 +3,28 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $LocalEndpoint = 'http://127.0.0.1:8000'
 if (-not (Get-Command tailscale.exe -ErrorAction SilentlyContinue)) { throw 'tailscale.exe is unavailable.' }
-$Status = (& tailscale.exe status --json 2>&1 | Out-String) | ConvertFrom-Json
+$StatusOutput = & $env:ComSpec /d /s /c `
+    'tailscale.exe status --json 2>&1'
+
+$StatusExitCode = $LASTEXITCODE
+$StatusText = $StatusOutput | Out-String
+
+if ($StatusExitCode -ne 0) {
+    throw (
+        "Unable to read Tailscale status. " +
+        "Exit code: $StatusExitCode`n$StatusText"
+    )
+}
+
+try {
+    $Status = $StatusText | ConvertFrom-Json
+}
+catch {
+    throw (
+        "Tailscale returned invalid status JSON.`n" +
+        $StatusText
+    )
+}
 if ($Status.BackendState -ne 'Running' -or -not $Status.Self.Online) { throw 'Tailscale is not connected.' }
 $Hostname = ([string]$Status.Self.DNSName).TrimEnd('.').ToLowerInvariant()
 $FunnelUrl = "https://$Hostname"

@@ -2,7 +2,7 @@
 
 BatteryAI is a local-first deployment of the finalized Oxford Battery PIMoE checkpoint. It predicts next-observed-checkpoint state of health (SOH) and predictive standard deviation. Numerical inference runs in the supplied PyTorch environment; optional explanatory suggestions use the paired local service and native Ollama with exactly `llama3.2:3b`.
 
-Start with [START_HERE.md](START_HERE.md). The static React application can be hosted on GitHub Pages and paired with the loopback-only local engine. The RUL head and Oxford-unsupported experts are deliberately unavailable.
+Start with [START_HERE.md](START_HERE.md). The static React application can be hosted on GitHub Pages and paired through a stable Tailscale Funnel with the loopback-only local engine. Local mode remains the default; see [docs/remote-deployment.md](docs/remote-deployment.md) for remote setup. The RUL head and Oxford-unsupported experts are deliberately unavailable.
 
 ## Repository map
 

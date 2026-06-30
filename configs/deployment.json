@@ -1,0 +1,13 @@
+{
+  "remote_enabled": false,
+  "remote_api_url": null,
+  "allowed_frontend_origins": [
+    "http://127.0.0.1:5173",
+    "http://localhost:5173"
+  ],
+  "request_timeout_seconds": 180,
+  "maximum_concurrent_inference_requests": 1,
+  "maximum_concurrent_suggestion_requests": 1,
+  "rate_limit_requests": 60,
+  "rate_limit_window_seconds": 60
+}

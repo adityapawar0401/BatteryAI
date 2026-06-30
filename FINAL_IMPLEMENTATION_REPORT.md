@@ -1,5 +1,54 @@
 # BatteryAI final implementation report
 
+## Stable remote deployment finalization — 2026-06-30
+
+This section is the authoritative final result for the remote-deployment change and supersedes the older baseline counts later in this report.
+
+### Scope and architecture
+
+Added an explicit, default-off `BATTERYAI_REMOTE_MODE=1` deployment layer: GitHub Pages remains a static frontend, one exact configured HTTPS `*.ts.net` Tailscale Funnel origin reaches FastAPI, and FastAPI continues to bind only to `127.0.0.1:8000`. The browser never contacts Ollama. No router, firewall, model, checkpoint-loading, Oxford preprocessing, device selection, fallback, expert masking, numerical schema, prediction schema, input workflow, Ollama prompt/model, browser ONNX policy, `_inputs`, raw data, or GPU-environment behavior was changed.
+
+Numerical inference is unchanged: no numerical engine, preprocessing, copied Battery-PIMoE, model-profile, checkpoint, scaler, adapter, contract, or fixture file changed. The finalized SHA-256 remains `1d070a4d3e9a8fd3883b7e9110bd9e68226ff98cc0e9692c961286cdb053b610`; remote-mode local smoke reported device `cuda` and that exact hash.
+
+### Exact files changed
+
+- Deployment configuration/security: `configs/deployment.json`, `configs/deployment.schema.json`, `services/local_inference/deployment.py`, `services/local_inference/app.py`, `tests/python/test_remote_deployment.py`.
+- Public frontend configuration/provider/UI/tests: `configs/app.json`, `configs/app.schema.json`, `apps/web/public/config/app.json`, `apps/web/src/config.ts`, `apps/web/src/config.test.ts`, `apps/web/src/inference/local.ts`, `apps/web/src/inference/local.test.ts`, `apps/web/src/llm/provider.ts`, `apps/web/src/App.tsx`, `apps/web/src/App.remote.test.tsx`.
+- Build/workflow metadata: `apps/web/package.json`, `apps/web/vite.config.ts`, `apps/web/vite.config.js`, `apps/web/tsconfig.app.tsbuildinfo`, `apps/web/tsconfig.node.tsbuildinfo`, `.github/workflows/pages.yml`.
+- Windows operation: `scripts/start-remote.ps1`, `scripts/stop-remote.ps1`, `scripts/check-remote.ps1`, `scripts/build-pages.ps1`, `scripts/test-web.ps1`, `.vscode/tasks.json`.
+- Documentation/reporting: `docs/remote-deployment.md`, `README.md`, `START_HERE.md`, `FINAL_IMPLEMENTATION_REPORT.md`.
+
+### Security and resource results
+
+- Remote URL validation accepts only one exact HTTPS `*.ts.net` origin and rejects credentials, query, fragment, path, custom port, non-HTTPS, and non-Tailscale hosts. The production UI locks this origin; local mode retains loopback endpoint controls.
+- CORS uses exact configured GitHub Pages and explicit loopback development origins. There is no wildcard or origin regex.
+- A fresh random pairing token is still created on every process start, checked with `secrets.compare_digest`, required for model details, inference, LLM capabilities, and suggestions, and stored by the browser only in `sessionStorage`. No backend request occurs before explicit pairing.
+- Remote Swagger, ReDoc, and OpenAPI are disabled. Authenticated API responses use `Cache-Control: no-store`; API security headers include `nosniff`, no-referrer, CSP `frame-ancestors 'none'`, and a restrictive permissions policy.
+- Numerical and suggestion capacity default to one active request each. Excess work is rejected immediately with structured HTTP 429 rather than queued. A configurable per-client/token sliding-window rate limit and configurable request timeouts are active.
+- Ollama remains strictly loopback-only. The new layer persists neither inputs nor generated results and adds no payload/prompt logging.
+
+### Final verification
+
+- `scripts/test-all.ps1`: **passed**.
+- Python: **48 passed, 0 failed**. This includes unchanged numerical regression, real checkpoint/adapter behavior, CUDA, auth, exact CORS, remote docs suppression, rate limiting, concurrency rejection, structured 429, URL validation, private-file non-serving behavior, and Ollama-unavailable startup behavior.
+- Frontend: **30 passed, 0 failed across 8 files**. This includes the locked GitHub Pages Funnel provider, no pre-pair backend request, strict build/public configuration, session pairing, and unchanged inference/suggestion behavior.
+- TypeScript: **passed**.
+- Default/local GitHub Pages production build: **passed**.
+- Remote GitHub Pages production build with `https://battery.example.ts.net`: **passed**; repository-subpath-safe relative asset build retained.
+- Remote build with a missing URL: **correctly rejected** with `Remote production build requires an exact HTTPS ts.net VITE_BATTERYAI_REMOTE_API_URL.`
+- Static artifact scan: **passed**; no token, `model.pt`, `.mat`, ONNX model, `_inputs`, GPU environment, local report, raw dataset name, or absolute user path was found.
+- Local remote-mode smoke without public exposure: **passed**; health 200, unauthenticated capabilities 401, authenticated capabilities 200, remote docs 404, device CUDA, exact finalized checkpoint hash.
+- Local CUDA regression: **passed** in the full Python suite and remote-mode smoke.
+- Local Ollama regression: **passed** against Ollama/API `0.30.11`, exact `llama3.2:3b`, genuine structured generation, and GPU placement.
+
+### Funnel and Pages result
+
+Tailscale readiness: **not installed on this host** (`tailscale.exe` not found). Therefore no public Funnel was opened, no actual Funnel smoke test was possible, and there is no stable public backend URL to report yet. The scripts never install Tailscale automatically.
+
+GitHub Pages requires the repository Actions variable `BATTERYAI_REMOTE_API_URL` set to the host's eventual exact `https://MACHINE.TAILNET.ts.net` Funnel origin. On the host, set the same `BATTERYAI_REMOTE_API_URL` plus `BATTERYAI_ALLOWED_FRONTEND_ORIGINS=https://USERNAME.github.io`.
+
+First manual action: install Tailscale, sign in/connect it, and complete any tailnet Funnel enablement requested by the installed CLI. Then set the two public environment values above, set the matching GitHub repository variable, and run **BatteryAI: Start Remote** followed by **BatteryAI: Check Remote Deployment**. The launcher prints the new pairing token; share it privately and never place it in GitHub configuration.
+
 ## Completion
 
 BatteryAI is implemented as a React/Vite static application, a loopback-only FastAPI/PyTorch engine, shared model/input contracts, a minimal copied deployment runtime, real Oxford fixture generation, a genuine ONNX export attempt, paired local-Ollama suggestions, Windows scripts, VS Code tasks, tests, documentation and a GitHub Pages workflow.
@@ -56,14 +105,14 @@ The local engine binds to `127.0.0.1`, generates a cryptographically random star
 Post-replacement verification executed in this implementation session:
 
 - Preflight/checksum: passed.
-- Python: 34 passed before one final mocked Ollama restart-recovery regression was added; the current suite contains 35 tests. The executed suite included every numerical test plus loopback-only Ollama configuration, unavailable state, missing/installed model detection, structured completion, timeout, malformed/schema-invalid output, suggestion authentication/input bounds, immutable numerical values and startup without Ollama.
-- Frontend: 25 passed across seven files before one final HTML-in-valid-field regression was added; the current suite contains 26 tests. The executed suite included every numerical/provider test plus paired local-LLM readiness, missing-model correction, latest-summary generation, cancellation, visible errors, immutable result rendering and absence of browser-LLM/WebGPU controls.
+- Python: 48 passed in the final suite, including every numerical and local-Ollama baseline test plus the remote deployment protections listed above.
+- Frontend: 30 passed across eight files in the final aggregate run, including every numerical/provider and paired local-LLM baseline test plus the remote production shell.
 - TypeScript: passed.
 - Production Vite/GitHub Pages build: passed after WebLLM dependency/worker removal; root `index.html` present.
 - Static artifact scan: no `model.pt`, `.mat`, `.onnx`, `_inputs`, supplied environment, local report, pairing-token text, raw dataset name, or absolute user path.
 - Production-code scan: no unresolved TODO/FIXME, placeholder, dummy, fake, or machine-specific absolute path occurrence.
 
-The requested final aggregate `scripts\test-all.ps1` rerun was attempted but the execution service rejected escalation because its usage allowance was exhausted. This is an external verification blocker, not a test failure. Run that command once the execution allowance is available to certify the two final added regressions together with the unchanged numerical suite.
+The final aggregate `scripts\test-all.ps1` rerun passed after the remote deployment implementation: preflight, 48 Python tests, TypeScript, 30 frontend tests, production build, and static artifact scan all completed successfully.
 
 The production build no longer emits the previous 6.03 MB WebLLM worker or 5.91 MB WebLLM runtime chunk (nor its 7.00 MB source map). Current `dist` is 29,842,444 bytes, dominated by ONNX Runtime Web assets that remain intentionally unchanged. Static scanning found no WebLLM identifiers, checkpoint, Oxford `.mat`, `_inputs` or supplied Python environment.
 
@@ -99,6 +148,6 @@ Browser-export dependencies are separated in `requirements-export.txt`; the expo
 
 ## Known limitations and blockers
 
-The genuine browser ONNX export limitation is documented above. It does not block local CUDA/CPU prediction, static hosting, input validation or paired local-Ollama suggestions. Ollama may choose GPU, CPU or mixed placement; a 4 GB GTX 1650 can make first load slow or resource-constrained. A live Ollama stop/restart was not forced during implementation to avoid interrupting the separately managed native application; unavailable/recovery behavior has mocked local-HTTP coverage. The remaining external blocker is the final aggregate test rerun rejected by the execution service usage limit. Production code contains no placeholders, mock predictions, fake generation or cloud fallback.
+The genuine browser ONNX export limitation is documented above. It does not block local CUDA/CPU prediction, static hosting, input validation or paired local-Ollama suggestions. Ollama may choose GPU, CPU or mixed placement; a 4 GB GTX 1650 can make first load slow or resource-constrained. A live Ollama stop/restart was not forced during implementation to avoid interrupting the separately managed native application; unavailable/recovery behavior has mocked local-HTTP coverage. The only remote-deployment blocker is that Tailscale is not installed on this host, so a real Funnel URL and public-network smoke test remain manual. Production code contains no placeholders, mock predictions, fake generation or cloud fallback.
 
 Manual retest: start Ollama, run `scripts\check-ollama.ps1`, start BatteryAI local inference and web UI, pair with the printed token, complete a CUDA prediction, confirm Local Ollama is `ready`, generate suggestions, verify the numerical cards do not change, rerun prediction and confirm the next request uses the new result. Stop/restart Ollama only when convenient, using **Check local LLM** to verify unavailable/recovery states.

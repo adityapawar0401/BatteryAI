@@ -5,5 +5,7 @@
   "inputMethods": ["upload", "paste", "table"],
   "automaticFallback": true,
   "localEndpoint": "http://127.0.0.1:8000",
+  "remoteEnabled": false,
+  "remoteApiUrl": null,
   "suggestions": {"enabled": true, "rawRowsIncluded": false}
 }

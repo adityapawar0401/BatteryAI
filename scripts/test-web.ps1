@@ -1,6 +1,13 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
-& npm.cmd run typecheck --prefix (Join-Path $Root 'apps\web')
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-& npm.cmd run test --prefix (Join-Path $Root 'apps\web')
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$PreviousLocation = Get-Location
+try {
+    Set-Location (Join-Path $Root 'apps\web')
+    & npm.cmd run typecheck
+    if ($LASTEXITCODE -ne 0) { throw "TypeScript checking failed with code $LASTEXITCODE." }
+    & npm.cmd run test
+    if ($LASTEXITCODE -ne 0) { throw "Frontend tests failed with code $LASTEXITCODE." }
+}
+finally {
+    Set-Location $PreviousLocation
+}

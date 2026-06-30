@@ -5,7 +5,7 @@ import { LocalHttpInferenceProvider } from "./inference/local";
 import { LocalOllamaSuggestionProvider } from "./llm/provider";
 import { SuggestionPanel, type LocalLlmStatus } from "./llm/SuggestionPanel";
 import { columns, parseCsv, readCsvFile, resultsToCsv, validateRows } from "./csv";
-import { validateAppConfig, validateModelProfile, type AppConfig } from "./config";
+import { applyBuildDeploymentConfig, validateModelProfile, type AppConfig } from "./config";
 import type { BackendMode, CurveRow, InferenceResponse, ModelProfile, PredictionResult } from "./types";
 import "./styles.css";
 
@@ -46,15 +46,15 @@ function App() {
       fetch(`${base}config/oxford-v1.json`).then((r) => r.ok ? r.json() : Promise.reject(new Error("model profile missing"))),
       fetch(`${base}config/oxford-input-schema.json`).then((r) => r.ok ? r.json() : Promise.reject(new Error("input schema missing"))),
     ]).then(([app, model, input]) => {
-      const validatedApp = validateAppConfig(app); const validatedProfile = validateModelProfile(model);
+      const validatedApp = applyBuildDeploymentConfig(app); const validatedProfile = validateModelProfile(model);
       if (validatedApp.modelProfile !== validatedProfile.id) throw new Error("App and model profile selections do not match.");
-      setConfig(validatedApp); setProfile(validatedProfile); setSchema(input); setEndpoint(validatedApp.localEndpoint);
+      setConfig(validatedApp); setProfile(validatedProfile); setSchema(input); setEndpoint(validatedApp.remoteEnabled ? validatedApp.remoteApiUrl! : validatedApp.localEndpoint);
     }).catch((error) => setStartupError(error instanceof Error ? error.message : "Configuration failed."));
   }, []);
 
-  const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token, profile?.modelSha256), [endpoint, token, profile]);
+  const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token, profile?.modelSha256, config?.remoteEnabled ? config.remoteApiUrl : null), [endpoint, token, profile, config]);
   const browser = useMemo(() => profile ? new BrowserOnnxInferenceProvider(profile) : null, [profile]);
-  const suggestionProvider = useMemo(() => new LocalOllamaSuggestionProvider(endpoint.replace(/\/$/, ""), token), [endpoint, token]);
+  const suggestionProvider = useMemo(() => new LocalOllamaSuggestionProvider(endpoint.replace(/\/$/, ""), token, config?.remoteEnabled ? config.remoteApiUrl : null), [endpoint, token, config]);
 
   function acceptText(text: string): void {
     setCsvText(text);
@@ -99,7 +99,7 @@ function App() {
 
   return <main className="shell">
     <header className="hero">
-      <div><p className="eyebrow">Local-first battery intelligence</p><h1>BatteryAI</h1><p className="lede">Next-checkpoint Oxford SOH prediction, with the numbers kept separate from interpretation.</p></div>
+      <div><p className="eyebrow">Local-first battery intelligence</p><h1>BatteryAI</h1><p className="lede">Next-checkpoint Oxford SOH prediction, with the numbers kept separate from interpretation.</p>{config.remoteEnabled && <p className="warning">Inference runs on the paired host computer, which must remain online. The numerical model and Ollama do not run on GitHub Pages.</p>}</div>
       <div className="status-grid" aria-label="Runtime status"><span><b>Model</b>{profile.title}</span><span><b>Backend</b>{response?.results[0]?.backend ?? mode}</span><span><b>Device</b>{device}</span><span><b>Local LLM</b>{llmStatus}</span></div>
     </header>
 
@@ -115,7 +115,7 @@ function App() {
       <p className="notice" role="status">{notice}</p>{errors.length > 0 && <div className="error" role="alert"><strong>Needs attention</strong><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
     </section>
 
-    <section className="card"><p className="eyebrow">2 · Inference backend</p><h2>Choose where numerical ML runs</h2><div className="backend-grid"><label>Backend<select value={mode} onChange={(event) => setMode(event.target.value as BackendMode)}><option value="auto">Auto</option><option value="browser">Browser</option><option value="local">Local</option></select></label><label>Local endpoint<input value={endpoint} onChange={(event) => { setEndpoint(event.target.value); setPaired(false); }} /></label><label>Pairing token<input type="password" autoComplete="off" value={token} onChange={(event) => { setToken(event.target.value); setPaired(false); }} /></label><button onClick={pair}>Test & pair local engine</button></div><p className="muted">The token stays in this browser tab. Auto will not send data locally until pairing succeeds.</p></section>
+    <section className="card"><p className="eyebrow">2 · Inference backend</p><h2>Choose where numerical ML runs</h2><div className="backend-grid"><label>Backend<select value={mode} onChange={(event) => setMode(event.target.value as BackendMode)}><option value="auto">Auto</option><option value="browser">Browser</option><option value="local">Host computer</option></select></label><label>{config.remoteEnabled ? "Configured Funnel backend" : "Local endpoint"}<input value={endpoint} readOnly={config.remoteEnabled} onChange={(event) => { setEndpoint(event.target.value); setPaired(false); }} /></label><label>Pairing token<input type="password" autoComplete="off" value={token} onChange={(event) => { setToken(event.target.value); setPaired(false); }} /></label><button onClick={pair}>Test & pair host engine</button></div><p className="muted">The backend is shown before pairing. The token stays in sessionStorage for this browser tab only, and no request is made before explicit pairing.</p></section>
 
     <section className="card"><div className="section-heading"><div><p className="eyebrow">3 · Results</p><h2>Numerical ML predictions</h2></div>{response && <div className="actions"><button className="secondary" onClick={() => download("batteryai-results.json", JSON.stringify(response, null, 2), "application/json")}>Export JSON</button><button className="secondary" onClick={() => download("batteryai-results.csv", resultsToCsv(response.results as unknown as Record<string, unknown>[]), "text/csv")}>Export CSV</button></div>}</div>
       {!response && <div className="empty">Validated predictions will appear here.</div>}

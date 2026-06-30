@@ -9,3 +9,5 @@ Open the VS Code Command Palette and run **Tasks: Run Task**.
 5. In BatteryAI, enter the local endpoint and token, choose **Test & pair local engine**, load the real example, validate, and run.
 
 Optional local suggestions require the native Windows Ollama application. Install Ollama separately, then run **BatteryAI: Setup Local LLM** (equivalent to `ollama pull llama3.2:3b`) and **BatteryAI: Check Local LLM**. The frontend never calls Ollama directly: it sends only a bounded prediction summary through the paired BatteryAI service. No cloud fallback or API key is used.
+
+For stable remote access, keep the host online and follow [docs/remote-deployment.md](docs/remote-deployment.md). Configure the exact Funnel URL and GitHub Pages origin, then use **BatteryAI: Start Remote**, **BatteryAI: Check Remote Deployment**, and **BatteryAI: Stop Remote**. Never publish the startup pairing token.

@@ -11,6 +11,9 @@
     {"label":"BatteryAI: Test Python","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\test-python.ps1"],"problemMatcher":[]},
     {"label":"BatteryAI: Test Web","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\test-web.ps1"],"problemMatcher":["$tsc"]},
     {"label":"BatteryAI: Test All","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\test-all.ps1"],"problemMatcher":["$tsc"]},
-    {"label":"BatteryAI: Build GitHub Pages","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\build-pages.ps1"],"problemMatcher":["$tsc"]}
+    {"label":"BatteryAI: Build GitHub Pages","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\build-pages.ps1"],"problemMatcher":["$tsc"]},
+    {"label":"BatteryAI: Start Remote","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\start-remote.ps1"],"isBackground":true,"problemMatcher":[]},
+    {"label":"BatteryAI: Stop Remote","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\stop-remote.ps1"],"problemMatcher":[]},
+    {"label":"BatteryAI: Check Remote Deployment","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\check-remote.ps1"],"problemMatcher":[]}
   ]
 }

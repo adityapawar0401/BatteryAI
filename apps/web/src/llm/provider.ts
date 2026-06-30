@@ -1,4 +1,4 @@
-import { isLoopbackEndpoint } from "../config";
+import { isConfiguredEndpoint } from "../config";
 import type { PredictionResult } from "../types";
 import { parseSuggestions, type Suggestions } from "./schema";
 
@@ -62,11 +62,11 @@ export function buildSuggestionSummary(result: PredictionResult): SuggestionSumm
 }
 
 export class LocalOllamaSuggestionProvider implements SuggestionProvider {
-  constructor(private endpoint: string, private token: string) {}
+  constructor(private endpoint: string, private token: string, private configuredRemoteEndpoint: string | null = null) {}
   private headers(): HeadersInit { return { "Content-Type": "application/json", "X-BatteryAI-Token": this.token }; }
 
   async capability(signal?: AbortSignal): Promise<LocalLlmCapabilities> {
-    if (!isLoopbackEndpoint(this.endpoint)) return unavailable("BatteryAI local endpoint must use loopback HTTP.");
+    if (!isConfiguredEndpoint(this.endpoint, this.configuredRemoteEndpoint)) return unavailable("BatteryAI endpoint is not the configured loopback or Funnel origin.");
     if (!this.token) return unavailable("Pair the BatteryAI local service before checking Local Ollama.");
     try {
       const response = await fetch(`${this.endpoint}/v1/llm-capabilities`, { headers: this.headers(), signal });
@@ -80,7 +80,7 @@ export class LocalOllamaSuggestionProvider implements SuggestionProvider {
   }
 
   async generate(result: PredictionResult, signal?: AbortSignal): Promise<LocalSuggestionResponse> {
-    if (!isLoopbackEndpoint(this.endpoint)) throw new Error("BatteryAI local endpoint must use loopback HTTP.");
+    if (!isConfiguredEndpoint(this.endpoint, this.configuredRemoteEndpoint)) throw new Error("BatteryAI endpoint is not the configured loopback or Funnel origin.");
     if (!this.token) throw new Error("Pair the BatteryAI local service before generating suggestions.");
     const response = await fetch(`${this.endpoint}/v1/suggestions`, { method: "POST", headers: this.headers(), body: JSON.stringify(buildSuggestionSummary(result)), signal });
     const data = await response.json().catch(() => null);

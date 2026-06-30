@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "title", "modelProfile", "inputMethods", "automaticFallback", "localEndpoint", "suggestions"],
+  "required": ["schemaVersion", "title", "modelProfile", "inputMethods", "automaticFallback", "localEndpoint", "remoteEnabled", "remoteApiUrl", "suggestions"],
   "properties": {
     "schemaVersion": {"const": 1},
     "title": {"const": "BatteryAI"},
@@ -10,6 +10,8 @@
     "inputMethods": {"type": "array", "items": {"enum": ["upload", "paste", "table"]}, "minItems": 1, "uniqueItems": true},
     "automaticFallback": {"type": "boolean"},
     "localEndpoint": {"type": "string", "pattern": "^http://(127\\.0\\.0\\.1|localhost)(:[0-9]+)?$"},
+    "remoteEnabled": {"type": "boolean", "default": false},
+    "remoteApiUrl": {"type": ["string", "null"], "pattern": "^https://[a-z0-9-]+(?:\\.[a-z0-9-]+)*\\.ts\\.net$"},
     "suggestions": {"type": "object", "additionalProperties": false, "required": ["enabled", "rawRowsIncluded"], "properties": {"enabled": {"type": "boolean"}, "rawRowsIncluded": {"const": false}}}
   }
 }

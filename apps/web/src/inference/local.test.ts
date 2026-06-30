@@ -15,6 +15,14 @@ describe("local pairing", () => {
     expect((await new LocalHttpInferenceProvider("https://example.com", "secret").capability()).available).toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("contacts only the exact configured Funnel origin", async () => {
+    const hash = "a".repeat(64);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ ready: true, device: "cuda", model_sha256: hash }), { status: 200 }));
+    const provider = new LocalHttpInferenceProvider("https://battery.example.ts.net", "secret", hash, "https://battery.example.ts.net");
+    expect((await provider.capability()).available).toBe(true);
+    expect(String(fetchMock.mock.calls[0][0])).toBe("https://battery.example.ts.net/v1/capabilities");
+    expect((await new LocalHttpInferenceProvider("https://other.example.ts.net", "secret", hash, "https://battery.example.ts.net").capability()).available).toBe(false);
+  });
   it("rejects an engine with the wrong finalized checkpoint", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ ready: true, device: "cpu", model_sha256: "b".repeat(64) }), { status: 200 }));
     const capability = await new LocalHttpInferenceProvider("http://127.0.0.1:8000", "secret", "a".repeat(64)).capability();

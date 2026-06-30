@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://batteryai.local/contracts/oxford-v1-input.json",
+  "title": "BatteryAI Oxford V1 curve rows",
+  "type": "object",
+  "required": ["rows"],
+  "additionalProperties": false,
+  "properties": {
+    "rows": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 20000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sequence_id", "cell_id", "source_checkpoint", "target_checkpoint", "modality", "point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K"],
+        "properties": {
+          "sequence_id": {"type": "string", "minLength": 1, "description": "Groups curve points into one forecast input."},
+          "cell_id": {"type": "string", "minLength": 1, "description": "Cell identifier."},
+          "source_checkpoint": {"type": "string", "minLength": 1, "description": "Observed checkpoint used as input."},
+          "target_checkpoint": {"type": "string", "minLength": 1, "description": "Next observed checkpoint being forecast."},
+          "modality": {"enum": ["C1ch", "C1dc", "OCVch", "OCVdc"], "description": "Oxford curve modality; C1ch is preferred when available."},
+          "point_index": {"type": "integer", "minimum": 0, "description": "Zero-based curve ordering within the sequence."},
+          "time_s": {"type": "number", "description": "Elapsed curve time.", "x-unit": "second"},
+          "voltage_V": {"type": "number", "description": "Measured cell voltage.", "x-unit": "volt"},
+          "capacity_Ah": {"type": "number", "description": "Capacity coordinate converted from Oxford mAh.", "x-unit": "ampere_hour"},
+          "temperature_K": {"type": "number", "description": "Cell temperature converted from Oxford Celsius.", "x-unit": "kelvin"},
+          "actual_soh": {"type": ["number", "null"], "minimum": 0, "maximum": 150, "description": "Optional next-checkpoint SOH in percentage points."}
+        }
+      }
+    }
+  },
+  "x-grouping": "sequence_id",
+  "x-ordering": "point_index contiguous from zero; time_s nondecreasing",
+  "x-missing": "Required measured fields cannot be missing. ICA and DVA are deterministically derived and invalid derivative intervals are masked. Current is unavailable and masked."
+}

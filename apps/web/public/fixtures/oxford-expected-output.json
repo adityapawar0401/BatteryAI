@@ -1,0 +1,34 @@
+{
+  "results": [
+    {
+      "request_id": "841e70f9-ee3f-4076-ad2b-a95a2e56e50a",
+      "model_profile": "oxford-v1",
+      "model_sha256": "1d070a4d3e9a8fd3883b7e9110bd9e68226ff98cc0e9692c961286cdb053b610",
+      "backend": "local-pytorch",
+      "runtime_device": "cpu",
+      "cell_id": "Cell1",
+      "sequence_id": "Cell1:cyc0000->cyc0100",
+      "source_checkpoint": "cyc0000",
+      "target_checkpoint": "cyc0100",
+      "predicted_soh": 97.06190490722656,
+      "predictive_std": 8.065762519836426,
+      "actual_soh": 98.67620878772155,
+      "absolute_error": 1.6143038804949867,
+      "active_experts": [
+        "core_operational",
+        "diagnostic_curve",
+        "usage_aging",
+        "residual"
+      ],
+      "warnings": [
+        "Final-training-cell examples are software fixtures, not unbiased performance estimates."
+      ],
+      "timing": {
+        "preprocessing_ms": 22.02979999128729,
+        "inference_ms": 2325.8898000058252,
+        "total_ms": 2366.638099978445
+      }
+    }
+  ],
+  "fallback_occurred": false
+}

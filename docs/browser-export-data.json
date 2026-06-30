@@ -1,0 +1,6 @@
+{
+  "available": false,
+  "exporter": "torch.onnx.export(dynamo=True)",
+  "warnings": [],
+  "reason": "TorchExportError: torch.export could not guard the data-dependent expression Eq(u0, 1) in <workspace>/services/local_inference/battery_pimoe/history/battery_history_transformer.py while detecting the TransformerEncoder causal mask. ONNX graph creation did not complete."
+}

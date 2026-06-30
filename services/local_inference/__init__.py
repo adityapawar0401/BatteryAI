@@ -1,0 +1,1 @@
+"""BatteryAI local inference service."""

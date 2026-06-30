@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "oxford-v1",
+  "title": "Oxford V1",
+  "target": "Next-observed-checkpoint SOH in percentage points with predictive standard deviation",
+  "modelSha256": "1d070a4d3e9a8fd3883b7e9110bd9e68226ff98cc0e9692c961286cdb053b610",
+  "activeExperts": ["core_operational", "diagnostic_curve", "usage_aging", "residual"],
+  "maskedExperts": ["eis_complex", "relaxation_pulse", "thermal_mechanical", "chemistry_geometry", "pack_context", "physics_state"],
+  "browserModel": {"available": false, "path": null, "executionProviders": ["webgpu", "wasm"], "reason": "The verified PyTorch model has not passed browser ONNX export and parity gates.", "inputNames": ["core", "diagnostic", "valid", "diagnostic_valid"], "outputNames": ["soh_location_scaled", "soh_scale_scaled"]},
+  "preprocessing": {"featureMean": [736219.3125, 3.8434970378875732, 0.0, 313.5458679199219], "featureStd": [121.44319152832031, 0.213599294424057, 1.0, 1.9262105226516724], "diagnosticMean": {"time_s": 736219.3411036293, "voltage_V": 3.843497112834965, "capacity_Ah": 0.3102967254538417, "temperature_K": 313.54586837009265, "ica_dQ_dV": 0.7165135143727426, "dva_dV_dQ": 2.3824070513531823}, "diagnosticStd": {"time_s": 121.44319061751993, "voltage_V": 0.21359929209241668, "capacity_Ah": 0.18178678919477473, "temperature_K": 1.9262105450086988, "ica_dQ_dV": 1.6980041944167876, "dva_dV_dQ": 12.314089170274698}, "targetMean": 85.38360595703125, "targetStd": 7.33991813659668},
+  "localModel": {"available": true, "defaultEndpoint": "http://127.0.0.1:8000"},
+  "limitations": [
+    "RUL is not trained or operational.",
+    "Only Oxford-supported experts are active.",
+    "The horizon is the next observed checkpoint, whose physical spacing can vary.",
+    "The deployment checkpoint was trained on all eight Oxford cells and has no held-out Oxford test set."
+  ],
+  "outputSchema": {"predicted_soh": "percent", "predictive_std": "percentage_points"}
+}

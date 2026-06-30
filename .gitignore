@@ -1,0 +1,45 @@
+﻿# BatteryAI deployment Python environment
+batteryai-gpu-env/
+
+# Ignore any accidentally created generic environment
+.venv/
+
+# Private supplied inputs
+_inputs/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Local model artifacts
+*.pt
+*.pth
+*.onnx
+*.onnx.data
+*.safetensors
+
+# Local configuration
+.env
+.env.*
+!.env.example
+*.log
+
+# Editors and OS
+.vscode/*
+!.vscode/tasks.json
+.idea/
+.DS_Store
+Thumbs.db
+.dist/
+apps/web/public/models/*.onnx*
+local-reports/
+*.mat

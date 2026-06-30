@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "title", "modelProfile", "inputMethods", "automaticFallback", "localEndpoint", "llm", "suggestions"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "title": {"const": "BatteryAI"},
+    "modelProfile": {"type": "string", "minLength": 1},
+    "inputMethods": {"type": "array", "items": {"enum": ["upload", "paste", "table"]}, "minItems": 1, "uniqueItems": true},
+    "automaticFallback": {"type": "boolean"},
+    "localEndpoint": {"type": "string", "pattern": "^http://(127\\.0\\.0\\.1|localhost)(:[0-9]+)?$"},
+    "llm": {"type": "object", "additionalProperties": false, "required": ["provider", "model", "temperature", "maxTokens"], "properties": {"provider": {"const": "webllm"}, "model": {"type": "string", "minLength": 1}, "temperature": {"type": "number", "minimum": 0, "maximum": 1}, "maxTokens": {"type": "integer", "minimum": 64, "maximum": 2048}}},
+    "suggestions": {"type": "object", "additionalProperties": false, "required": ["enabled", "rawRowsIncluded"], "properties": {"enabled": {"type": "boolean"}, "rawRowsIncluded": {"const": false}}}
+  }
+}

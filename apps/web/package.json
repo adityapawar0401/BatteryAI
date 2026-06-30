@@ -10,7 +10,6 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
-    "@mlc-ai/web-llm": "^0.2.79",
     "ajv": "^8.17.1",
     "onnxruntime-web": "^1.22.0",
     "papaparse": "^5.5.3",

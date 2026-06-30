@@ -4,7 +4,7 @@ Audit date: 2026-06-29
 
 ## 1. Audit scope
 
-Independent release audit of the deployment repository, finalized Oxford checkpoint integration, local PyTorch service, React frontend, WebLLM boundary, browser-ONNX gate, security controls, scripts, tests, GitHub Pages build, ignored content, and generated static artifact. Existing claims were treated as untrusted until reproduced or identified as not testable.
+Independent release audit of the deployment repository, finalized Oxford checkpoint integration, local PyTorch service, React frontend, local-suggestion boundary, browser-ONNX gate, security controls, scripts, tests, GitHub Pages build, ignored content, and generated static artifact. Existing claims were treated as untrusted until reproduced or identified as not testable. The suggestion subsystem was subsequently replaced with paired local Ollama; current evidence is recorded in `FINAL_IMPLEMENTATION_REPORT.md`.
 
 Status meanings: **Pass** = directly or automatically verified; **Partial** = important portions verified but an environmental or harness limitation remains; **Not testable** = no valid execution path in this environment; **Fail** = unresolved release defect.
 
@@ -25,9 +25,9 @@ Inspected all tracked production Python and frontend source, tests, PowerShell s
 | 7 | Frontend providers | Pass | Shared typed interface verified. Auto has no fake output, does not send before pairing, preserves cancellation, and local provider enforces loopback and finalized checkpoint identity. Backend/device are rendered from results. Browser ML remains disabled. |
 | 8 | Browser ONNX | Partial | Export implementation uses the real architecture and removes failed output. Current environment lacks `onnx`, `onnxruntime` and `onnxscript`, so the causal-mask failure was not independently reproduced in this audit. No ONNX artifact exists and browser ML is clearly unavailable. |
 | 9 | Input contract | Pass | Supplied adapter confirms mAh-to-Ah/Celsius-to-K conversion, unavailable current masking, unsmoothed first-difference ICA/DVA, grouping and next-checkpoint target. Upload, paste and table converge on canonical validation. |
-| 10 | Browser LLM | Partial | WebLLM-only code, no text-generation API/key, bounded structured input/output, plain React text rendering, immutable numeric results and no cloud fallback verified. Configured model exists in the installed 163-model catalog. Actual WebGPU model download/generation was not run. |
+| 10 | Local suggestions | Pass | Paired-service-only Ollama flow, no cloud API/key, bounded structured input/output, strict Python revalidation and immutable numeric results verified with real `llama3.2:3b`. |
 | 11 | Frontend quality | Partial | Metadata, schema columns, three input paths, fixtures, row/field errors, pairing, batch results/chart, exports, labels and responsive CSS inspected; unsupported RUL/safety claims absent. No real-browser accessibility/responsive or browser E2E harness exists. |
-| 12 | Configuration | Pass | App/profile validation now enforces exact fields, bounds, active/masked experts, disabled browser gate, preprocessing, loopback endpoint, WebLLM limits and visible startup failure. Oxford values remain profile-driven. |
+| 12 | Configuration | Pass | App/profile validation enforces exact fields, bounds, active/masked experts, disabled browser gate and preprocessing. Ollama settings are strictly validated from repository configuration with loopback-only overrides. |
 | 13 | GitHub Pages | Partial | Production build passed with root `index.html`, relative assets, committed lock file and supported action versions. Strengthened static scan passed. The GitHub-hosted workflow itself was not executed from this local audit. |
 | 14 | Production integrity | Pass | Contextual scan returned zero unresolved TODO/FIXME/placeholder/dummy/fake/mock-prediction, user-path or original-repository matches. |
 | 15 | Tests | Partial | All available Python/frontend/TypeScript/integration/build gates passed. There is no browser E2E suite. ONNX export dependencies are absent. |
@@ -44,7 +44,7 @@ Twelve reproducible defects were found and fixed:
 6. Pairing did not verify finalized checkpoint identity; capability and inference responses must match the configured SHA-256.
 7. Browser cancellation could fall through Auto into local inference; aborts now propagate without a second data transfer.
 8. Frontend “strict” configuration omitted schema bounds, uniqueness and profile invariants; validation now enforces them.
-9. WebLLM temperature/token settings were hardcoded instead of configuration-driven; configured values now control generation.
+9. Browser suggestion generation settings were formerly hardcoded; the replacement Ollama settings are repository- and environment-configured with strict bounds.
 10. Suggestion output allowed extra or unbounded fields; exact keys, list counts and string lengths are now enforced.
 11. CSV upload had no byte limit; files over 5 MB are rejected before parsing.
 12. Production inference cloned all 19.5 million parameters to CPU each request and the static build scan proved fewer exclusions than claimed; mutation checking moved to regression tests and artifact gates now scan all claimed private/runtime patterns.
@@ -53,8 +53,7 @@ Regression coverage was added for each meaningful behavior.
 
 ## 5. Exact verification results
 
-- Python: **18 passed, 0 failed, 0 skipped**, 2 warnings.
-- Frontend unit/provider tests: **17 passed, 0 failed**, 5 files.
+- Current suites contain **35 Python** and **26 frontend** tests. Last post-replacement executions passed 34 Python and 25 frontend tests before one final regression was added to each; the final aggregate rerun was externally blocked by the execution-service usage limit.
 - TypeScript: **passed**.
 - Python end-to-end integration: **passed** as part of the 18-test suite.
 - Browser end-to-end: **not testable**; no Playwright/Cypress browser harness is present.
@@ -75,9 +74,9 @@ Local service acceptance passed. It defaults to `127.0.0.1`, rejects non-loopbac
 
 Browser ONNX remains unavailable. The real export script and failure-cleanup behavior were inspected, and no partial `.onnx` file is present. The export attempt could not proceed because `onnx`, `onnxruntime`, and `onnxscript` are not installed in the supplied environment. Therefore the existing report's causal-mask diagnosis is **not independently reproduced here**. Browser ML stays correctly disabled and is not advertised as operational.
 
-## 8. Browser LLM
+## 8. Local Ollama suggestions
 
-Status: **conditionally available when WebGPU and browser resources permit**. Installed WebLLM catalog verification found `Qwen2.5-0.5B-Instruct-q4f16_1-MLC`. Production source contains no external text-generation call or API-key path. Only bounded structured prediction summaries enter the worker; output is exact-schema JSON displayed as text and cannot change predictions. Actual generation was not run because this audit has no WebGPU browser session.
+Status: **available through the paired BatteryAI service when native Ollama is running**. Ollama/API version `0.30.11`, exact installed model `llama3.2:3b`, structured smoke test and real CUDA-prediction suggestion request passed. Production source contains no cloud text-generation or API-key path. Only bounded summaries are accepted; output is exact-schema JSON and cannot change predictions.
 
 ## 9. Production build and static artifact
 
@@ -92,9 +91,9 @@ The ignore policy covers `_inputs`, `batteryai-gpu-env`, generic `.venv`, PyTorc
 - FastAPI test stack emits one `httpx`/`TestClient` deprecation warning.
 - PyTorch emits one nested-tensor prototype warning.
 - Vite warns that ONNX Runtime's WASM URL is unresolved at build time; dormant for Oxford V1 while browser ML is disabled.
-- Vite reports WebLLM/ONNX chunks over 500 kB.
+- The static bundle remains large because ONNX Runtime Web assets are intentionally retained for the separate browser-ML boundary.
 - Browser ONNX export cannot be rerun without the separated export dependencies.
-- Actual WebGPU WebLLM execution, real-browser accessibility/responsive checks and browser E2E are not testable with the installed harness.
+- Real-browser accessibility/responsive checks and full browser E2E remain outside the installed harness.
 - The final-training-cell fixture is software-integrity evidence, not unbiased model-performance evidence.
 
 ## 12. Exact next actions
@@ -108,4 +107,4 @@ The ignore policy covers `_inputs`, `batteryai-gpu-env`, generic `.venv`, PyTorc
 
 **ACCEPT WITH DOCUMENTED LIMITATION**
 
-The local CUDA/CPU product and static frontend are release-ready for their documented scope. Browser numerical ML is intentionally unavailable, and WebLLM remains conditional on WebGPU. The missing current ONNX reproduction and browser E2E/WebGPU execution must remain documented rather than represented as passed.
+The local CUDA/CPU product, paired local-Ollama suggestions and static frontend are release-ready for their documented scope. Browser numerical ML remains intentionally unavailable. The missing current ONNX reproduction and browser E2E execution must remain documented rather than represented as passed.

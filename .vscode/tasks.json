@@ -6,6 +6,8 @@
     {"label":"BatteryAI: Export Browser Model","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\export-browser-model.ps1"],"problemMatcher":[]},
     {"label":"BatteryAI: Start Local Inference","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\start-local.ps1"],"isBackground":true,"problemMatcher":[]},
     {"label":"BatteryAI: Start Web","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\start-web.ps1"],"isBackground":true,"problemMatcher":[]},
+    {"label":"BatteryAI: Check Local LLM","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\check-ollama.ps1"],"problemMatcher":[]},
+    {"label":"BatteryAI: Setup Local LLM","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\setup-ollama-model.ps1"],"problemMatcher":[]},
     {"label":"BatteryAI: Test Python","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\test-python.ps1"],"problemMatcher":[]},
     {"label":"BatteryAI: Test Web","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\test-web.ps1"],"problemMatcher":["$tsc"]},
     {"label":"BatteryAI: Test All","type":"shell","command":"powershell","args":["-ExecutionPolicy","Bypass","-File","${workspaceFolder}\\scripts\\test-all.ps1"],"problemMatcher":["$tsc"]},

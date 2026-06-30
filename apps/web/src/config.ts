@@ -10,7 +10,7 @@ export function isLoopbackEndpoint(value: string): boolean {
   } catch { return false; }
 }
 
-export interface AppConfig { title: string; localEndpoint: string; modelProfile: string; inputMethods: string[]; automaticFallback: boolean; llm: { provider: string; model: string; temperature: number; maxTokens: number }; suggestions: { enabled: boolean; rawRowsIncluded: boolean } }
+export interface AppConfig { title: string; localEndpoint: string; modelProfile: string; inputMethods: string[]; automaticFallback: boolean; suggestions: { enabled: boolean; rawRowsIncluded: boolean } }
 
 function exactKeys(value: Record<string, unknown>, expected: string[], label: string): void {
   if (Object.keys(value).sort().join("|") !== [...expected].sort().join("|")) throw new Error(`${label} contains missing or unknown fields.`);
@@ -19,12 +19,9 @@ function exactKeys(value: Record<string, unknown>, expected: string[], label: st
 export function validateAppConfig(value: unknown): AppConfig {
   if (!value || typeof value !== "object") throw new Error("App configuration must be an object.");
   const app = value as Record<string, unknown>;
-  exactKeys(app, ["schemaVersion", "title", "modelProfile", "inputMethods", "automaticFallback", "localEndpoint", "llm", "suggestions"], "App configuration");
+  exactKeys(app, ["schemaVersion", "title", "modelProfile", "inputMethods", "automaticFallback", "localEndpoint", "suggestions"], "App configuration");
   if (app.schemaVersion !== 1 || app.title !== "BatteryAI" || typeof app.modelProfile !== "string" || !app.modelProfile || !Array.isArray(app.inputMethods) || app.inputMethods.length < 1 || new Set(app.inputMethods).size !== app.inputMethods.length || app.inputMethods.some((method) => !["upload", "paste", "table"].includes(String(method))) || typeof app.automaticFallback !== "boolean") throw new Error("App configuration has invalid core fields.");
   if (typeof app.localEndpoint !== "string" || !isLoopbackEndpoint(app.localEndpoint)) throw new Error("Local endpoint must be loopback HTTP.");
-  if (!app.llm || typeof app.llm !== "object") throw new Error("LLM configuration is invalid.");
-  const llm = app.llm as Record<string, unknown>; exactKeys(llm, ["provider", "model", "temperature", "maxTokens"], "LLM configuration");
-  if (llm.provider !== "webllm" || typeof llm.model !== "string" || !llm.model || typeof llm.temperature !== "number" || llm.temperature < 0 || llm.temperature > 1 || !Number.isInteger(llm.maxTokens) || (llm.maxTokens as number) < 64 || (llm.maxTokens as number) > 2048) throw new Error("LLM configuration is invalid.");
   if (!app.suggestions || typeof app.suggestions !== "object") throw new Error("Suggestion configuration is invalid.");
   const suggestions = app.suggestions as Record<string, unknown>; exactKeys(suggestions, ["enabled", "rawRowsIncluded"], "Suggestion configuration");
   if (typeof suggestions.enabled !== "boolean" || suggestions.rawRowsIncluded !== false) throw new Error("Suggestion configuration is invalid.");

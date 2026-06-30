@@ -5,11 +5,5 @@
   "inputMethods": ["upload", "paste", "table"],
   "automaticFallback": true,
   "localEndpoint": "http://127.0.0.1:8000",
-  "llm": {
-    "provider": "webllm",
-    "model": "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-    "temperature": 0.1,
-    "maxTokens": 400
-  },
   "suggestions": {"enabled": true, "rawRowsIncluded": false}
 }

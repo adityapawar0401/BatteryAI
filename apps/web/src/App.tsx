@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AutoInferenceProvider } from "./inference/auto";
 import { BrowserOnnxInferenceProvider } from "./inference/browser";
 import { LocalHttpInferenceProvider } from "./inference/local";
-import { BrowserSuggestionProvider } from "./llm/provider";
-import type { Suggestions } from "./llm/schema";
+import { LocalOllamaSuggestionProvider } from "./llm/provider";
+import { SuggestionPanel, type LocalLlmStatus } from "./llm/SuggestionPanel";
 import { columns, parseCsv, readCsvFile, resultsToCsv, validateRows } from "./csv";
 import { validateAppConfig, validateModelProfile, type AppConfig } from "./config";
 import type { BackendMode, CurveRow, InferenceResponse, ModelProfile, PredictionResult } from "./types";
@@ -37,8 +37,7 @@ function App() {
   const [device, setDevice] = useState("—");
   const [busy, setBusy] = useState(false);
   const [response, setResponse] = useState<InferenceResponse | null>(null);
-  const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
-  const [llmProgress, setLlmProgress] = useState("");
+  const [llmStatus, setLlmStatus] = useState<LocalLlmStatus>("unavailable");
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -55,6 +54,7 @@ function App() {
 
   const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token, profile?.modelSha256), [endpoint, token, profile]);
   const browser = useMemo(() => profile ? new BrowserOnnxInferenceProvider(profile) : null, [profile]);
+  const suggestionProvider = useMemo(() => new LocalOllamaSuggestionProvider(endpoint.replace(/\/$/, ""), token), [endpoint, token]);
 
   function acceptText(text: string): void {
     setCsvText(text);
@@ -74,7 +74,7 @@ function App() {
   }
   async function runPrediction(): Promise<void> {
     if (!profile || !browser || !validate()) return;
-    setBusy(true); setResponse(null); setSuggestions(null); abortRef.current = new AbortController();
+    setBusy(true); setResponse(null); abortRef.current = new AbortController();
     try {
       let result: InferenceResponse;
       if (mode === "local") { if (!paired) throw new Error("Pair the local engine before sending battery data."); result = await local.infer(rows, abortRef.current.signal); }
@@ -83,12 +83,6 @@ function App() {
       setResponse(result); setDevice(result.results[0]?.runtime_device ?? "—"); setNotice(`${result.results.length} prediction${result.results.length === 1 ? "" : "s"} completed with ${result.results[0]?.backend}.`);
     } catch (error) { setErrors([error instanceof Error ? error.message : "Inference failed."]); }
     finally { setBusy(false); }
-  }
-  async function runSuggestions(result: PredictionResult): Promise<void> {
-    if (!config) return;
-    setSuggestions(null); setLlmProgress("Checking browser model…");
-    try { const provider = new BrowserSuggestionProvider(config.llm.model, config.llm.temperature, config.llm.maxTokens); setSuggestions(await provider.generate(result, setLlmProgress)); setLlmProgress("Ready"); }
-    catch (error) { setLlmProgress(error instanceof Error ? error.message : "Browser suggestions unavailable."); }
   }
   function editRow(index: number, field: keyof CurveRow, value: string): void {
     setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: ["point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K", "actual_soh"].includes(field) ? (value === "" && field === "actual_soh" ? null : Number(value)) : value } as CurveRow : row));
@@ -106,7 +100,7 @@ function App() {
   return <main className="shell">
     <header className="hero">
       <div><p className="eyebrow">Local-first battery intelligence</p><h1>BatteryAI</h1><p className="lede">Next-checkpoint Oxford SOH prediction, with the numbers kept separate from interpretation.</p></div>
-      <div className="status-grid" aria-label="Runtime status"><span><b>Model</b>{profile.title}</span><span><b>Backend</b>{response?.results[0]?.backend ?? mode}</span><span><b>Device</b>{device}</span><span><b>Browser LLM</b>{BrowserSuggestionProvider.supportsWebGpu() ? "WebGPU ready" : "Unavailable"}</span></div>
+      <div className="status-grid" aria-label="Runtime status"><span><b>Model</b>{profile.title}</span><span><b>Backend</b>{response?.results[0]?.backend ?? mode}</span><span><b>Device</b>{device}</span><span><b>Local LLM</b>{llmStatus}</span></div>
     </header>
 
     <section className="card model-card"><div><p className="eyebrow">Model profile</p><h2>{profile.target}</h2><p className="hash">SHA-256 {profile.modelSha256.slice(0, 16)}…</p></div><div><h3>Active experts</h3><div className="chips">{profile.activeExperts.map((expert) => <span key={expert}>{expert}</span>)}</div></div><details><summary>Limits and masked capabilities</summary><ul>{profile.limitations.map((item) => <li key={item}>{item}</li>)}</ul><p>Masked: {profile.maskedExperts.join(", ")}</p><p>Browser ML: {profile.browserModel.reason}</p></details></section>
@@ -125,10 +119,10 @@ function App() {
 
     <section className="card"><div className="section-heading"><div><p className="eyebrow">3 · Results</p><h2>Numerical ML predictions</h2></div>{response && <div className="actions"><button className="secondary" onClick={() => download("batteryai-results.json", JSON.stringify(response, null, 2), "application/json")}>Export JSON</button><button className="secondary" onClick={() => download("batteryai-results.csv", resultsToCsv(response.results as unknown as Record<string, unknown>[]), "text/csv")}>Export CSV</button></div>}</div>
       {!response && <div className="empty">Validated predictions will appear here.</div>}
-      {response && <><div className="result-grid">{response.results.map((result) => <article className="result" key={result.sequence_id}><p>{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p><strong>{result.predicted_soh.toFixed(2)}<small>% predicted SOH</small></strong><dl><div><dt>Predictive std.</dt><dd>{result.predictive_std.toFixed(2)} pp</dd></div>{result.actual_soh != null && <div><dt>Actual SOH</dt><dd>{result.actual_soh.toFixed(2)}%</dd></div>}{result.absolute_error != null && <div><dt>Absolute error</dt><dd>{result.absolute_error.toFixed(2)} pp</dd></div>}<div><dt>Runtime</dt><dd>{result.timing.total_ms.toFixed(0)} ms</dd></div><div><dt>Backend / device</dt><dd>{result.backend} / {result.runtime_device}</dd></div></dl>{result.warnings.map((warning) => <p className="warning" key={warning}>{warning}</p>)}<button className="secondary" onClick={() => runSuggestions(result)}>Generate browser-local suggestions</button></article>)}</div>{response.results.length > 1 && <SohChart results={response.results} />}</>}
+      {response && <><div className="result-grid">{response.results.map((result) => <article className="result" key={result.sequence_id}><p>{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p><strong>{result.predicted_soh.toFixed(2)}<small>% predicted SOH</small></strong><dl><div><dt>Predictive std.</dt><dd>{result.predictive_std.toFixed(2)} pp</dd></div>{result.actual_soh != null && <div><dt>Actual SOH</dt><dd>{result.actual_soh.toFixed(2)}%</dd></div>}{result.absolute_error != null && <div><dt>Absolute error</dt><dd>{result.absolute_error.toFixed(2)} pp</dd></div>}<div><dt>Runtime</dt><dd>{result.timing.total_ms.toFixed(0)} ms</dd></div><div><dt>Backend / device</dt><dd>{result.backend} / {result.runtime_device}</dd></div></dl>{result.warnings.map((warning) => <p className="warning" key={warning}>{warning}</p>)}</article>)}</div>{response.results.length > 1 && <SohChart results={response.results} />}</>}
     </section>
 
-    <section className="card suggestion"><p className="eyebrow">4 · Optional interpretation</p><h2>AI-generated suggestions</h2><p>Runs through WebLLM in your browser. Battery rows are not sent to an external text-generation service.</p>{llmProgress && <p className="notice">{llmProgress}</p>}{suggestions ? <div><h3>{suggestions.summary}</h3><h4>Actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul><h4>Cautions</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></div> : <div className="empty">Request suggestions from a completed numerical result.</div>}<p className="warning">Decision support only—not a safety certification. Suggestions cannot change the prediction above.</p></section>
+    <SuggestionPanel paired={paired} latestResult={response?.results[0] ?? null} provider={suggestionProvider} onStatusChange={setLlmStatus} />
   </main>;
 }
 

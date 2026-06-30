@@ -8,4 +8,4 @@ Open the VS Code Command Palette and run **Tasks: Run Task**.
 4. In a second terminal, run **BatteryAI: Start Web** and open `http://127.0.0.1:5173`.
 5. In BatteryAI, enter the local endpoint and token, choose **Test & pair local engine**, load the real example, validate, and run.
 
-The first WebLLM suggestion request downloads and browser-caches `Qwen2.5-0.5B-Instruct-q4f16_1-MLC`. It requires WebGPU and can take several minutes. No cloud text-generation fallback is used.
+Optional local suggestions require the native Windows Ollama application. Install Ollama separately, then run **BatteryAI: Setup Local LLM** (equivalent to `ollama pull llama3.2:3b`) and **BatteryAI: Check Local LLM**. The frontend never calls Ollama directly: it sends only a bounded prediction summary through the paired BatteryAI service. No cloud fallback or API key is used.

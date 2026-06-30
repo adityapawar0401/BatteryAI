@@ -30,8 +30,9 @@ jobs:
         shell: bash
         run: |
           test -f apps/web/dist/index.html
-          ! find apps/web/dist -type f \( -name 'model.pt' -o -name '*.mat' \) | grep .
-          ! grep -R -F 'C:\Users\' apps/web/dist
+          ! find apps/web/dist -type f \( -name 'model.pt' -o -name '*.mat' -o -name '*.onnx' -o -name '*.onnx.data' \) | grep .
+          ! find apps/web/dist -type f | grep -E '(_inputs|batteryai-gpu-env|local-reports)'
+          ! grep -R -E 'C:\\Users\\|Pairing token:|Oxford_Battery_Degradation_Dataset_1\.mat' apps/web/dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

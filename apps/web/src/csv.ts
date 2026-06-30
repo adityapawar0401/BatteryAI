@@ -2,6 +2,7 @@ import Papa from "papaparse";
 import type { CurveRow } from "./types";
 
 export const columns = ["sequence_id", "cell_id", "source_checkpoint", "target_checkpoint", "modality", "point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K", "actual_soh"] as const;
+export const MAX_CSV_BYTES = 5 * 1024 * 1024;
 const numeric = new Set(["point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K", "actual_soh"]);
 
 export function parseCsv(text: string): CurveRow[] {
@@ -33,7 +34,16 @@ export function validateRows(rows: CurveRow[]): string[] {
   if (rows.length < 2) errors.push("At least two curve points are required.");
   if (rows.length > 20000) errors.push("The 20,000-row limit was exceeded.");
   const groups = new Map<string, CurveRow[]>();
-  rows.forEach((row) => groups.set(row.sequence_id, [...(groups.get(row.sequence_id) ?? []), row]));
+  rows.forEach((row, index) => {
+    for (const field of ["point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K"] as const) if (!Number.isFinite(row[field])) errors.push(`Row ${index + 1}, ${field}: finite number required.`);
+    if (row.time_s < 0) errors.push(`Row ${index + 1}, time_s: seconds must be nonnegative.`);
+    if (row.voltage_V < 0 || row.voltage_V > 10) errors.push(`Row ${index + 1}, voltage_V: expected volts between 0 and 10.`);
+    if (row.capacity_Ah < -20 || row.capacity_Ah > 20) errors.push(`Row ${index + 1}, capacity_Ah: expected ampere-hours between -20 and 20.`);
+    if (row.temperature_K < 200 || row.temperature_K > 500) errors.push(`Row ${index + 1}, temperature_K: expected kelvin between 200 and 500.`);
+    if (row.actual_soh != null && (!Number.isFinite(row.actual_soh) || row.actual_soh < 0 || row.actual_soh > 150)) errors.push(`Row ${index + 1}, actual_soh: expected percent between 0 and 150.`);
+    if (!["C1ch", "C1dc", "OCVch", "OCVdc"].includes(row.modality)) errors.push(`Row ${index + 1}, modality: unsupported Oxford modality.`);
+    groups.set(row.sequence_id, [...(groups.get(row.sequence_id) ?? []), row]);
+  });
   if (groups.size > 64) errors.push("At most 64 sequences are allowed.");
   for (const [id, group] of groups) {
     const ordered = [...group].sort((a, b) => a.point_index - b.point_index);
@@ -47,3 +57,8 @@ export function validateRows(rows: CurveRow[]): string[] {
 
 export function toCsv(rows: CurveRow[]): string { return Papa.unparse(rows, { columns: [...columns] }); }
 export function resultsToCsv(results: Record<string, unknown>[]): string { return Papa.unparse(results); }
+
+export async function readCsvFile(file: File): Promise<string> {
+  if (file.size > MAX_CSV_BYTES) throw new Error(`CSV upload exceeds the ${MAX_CSV_BYTES / 1024 / 1024} MB limit.`);
+  return file.text();
+}

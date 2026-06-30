@@ -5,7 +5,10 @@ export class AutoInferenceProvider {
   async infer(rows: CurveRow[], signal?: AbortSignal): Promise<InferenceResponse> {
     const browserCapability = await this.browser.capability(signal);
     if (browserCapability.available) {
-      try { return await this.browser.infer(rows, signal); } catch { /* verified load failure permits paired-local fallback */ }
+      try { return await this.browser.infer(rows, signal); } catch (error) {
+        if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) throw error;
+        /* A verified browser load failure permits paired-local fallback. */
+      }
     }
     if (!this.localIsPaired) throw new Error("Browser ML is unavailable. Pair the local engine before Auto can send battery data to it.");
     const localCapability = await this.local.capability(signal);

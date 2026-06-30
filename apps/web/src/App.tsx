@@ -4,7 +4,7 @@ import { BrowserOnnxInferenceProvider } from "./inference/browser";
 import { LocalHttpInferenceProvider } from "./inference/local";
 import { BrowserSuggestionProvider } from "./llm/provider";
 import type { Suggestions } from "./llm/schema";
-import { columns, parseCsv, resultsToCsv, validateRows } from "./csv";
+import { columns, parseCsv, readCsvFile, resultsToCsv, validateRows } from "./csv";
 import { validateAppConfig, validateModelProfile, type AppConfig } from "./config";
 import type { BackendMode, CurveRow, InferenceResponse, ModelProfile, PredictionResult } from "./types";
 import "./styles.css";
@@ -53,7 +53,7 @@ function App() {
     }).catch((error) => setStartupError(error instanceof Error ? error.message : "Configuration failed."));
   }, []);
 
-  const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token), [endpoint, token]);
+  const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token, profile?.modelSha256), [endpoint, token, profile]);
   const browser = useMemo(() => profile ? new BrowserOnnxInferenceProvider(profile) : null, [profile]);
 
   function acceptText(text: string): void {
@@ -87,7 +87,7 @@ function App() {
   async function runSuggestions(result: PredictionResult): Promise<void> {
     if (!config) return;
     setSuggestions(null); setLlmProgress("Checking browser model…");
-    try { const provider = new BrowserSuggestionProvider(config.llm.model); setSuggestions(await provider.generate(result, setLlmProgress)); setLlmProgress("Ready"); }
+    try { const provider = new BrowserSuggestionProvider(config.llm.model, config.llm.temperature, config.llm.maxTokens); setSuggestions(await provider.generate(result, setLlmProgress)); setLlmProgress("Ready"); }
     catch (error) { setLlmProgress(error instanceof Error ? error.message : "Browser suggestions unavailable."); }
   }
   function editRow(index: number, field: keyof CurveRow, value: string): void {
@@ -114,7 +114,7 @@ function App() {
     <section className="card">
       <div className="section-heading"><div><p className="eyebrow">1 · Input</p><h2>Oxford curve data</h2></div><div className="actions"><a className="button secondary" href={`${base}fixtures/oxford-template.csv`} download>Download template</a><button className="secondary" onClick={loadExample}>Load real example</button></div></div>
       <div className="tabs" role="tablist">{(["upload", "paste", "table"] as Tab[]).map((item) => <button role="tab" aria-selected={tab === item} key={item} onClick={() => setTab(item)}>{item === "upload" ? "Upload CSV" : item === "paste" ? "Paste CSV" : "Edit table"}</button>)}</div>
-      {tab === "upload" && <label className="dropzone">Choose a CSV file<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) file.text().then(acceptText); }} /></label>}
+      {tab === "upload" && <label className="dropzone">Choose a CSV file<input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) readCsvFile(file).then(acceptText).catch((error) => setErrors([error instanceof Error ? error.message : "CSV upload failed."])); }} /></label>}
       {tab === "paste" && <label>CSV text<textarea rows={12} value={csvText} onChange={(event) => setCsvText(event.target.value)} aria-describedby="csv-columns" /><small id="csv-columns">Columns: {columns.join(", ")}</small><button onClick={() => acceptText(csvText)}>Parse pasted CSV</button></label>}
       {tab === "table" && <div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column} title={propertySchema[column]?.description}>{labels[column]}{column !== "actual_soh" && <i>*</i>}<small>{propertySchema[column]?.["x-unit"]}</small></th>)}</tr></thead><tbody>{rows.slice(0, 100).map((row, index) => <tr key={`${row.sequence_id}-${index}`}>{columns.map((column) => <td key={column}><input aria-label={`${labels[column]} row ${index + 1}`} value={row[column] ?? ""} onChange={(event) => editRow(index, column, event.target.value)} /></td>)}</tr>)}</tbody></table>{rows.length > 100 && <p className="muted">Showing the first 100 of {rows.length.toLocaleString()} editable rows. All rows will be validated and inferred.</p>}</div>}
       <div className="actions"><button className="secondary" onClick={addRow}>Add table row</button><button onClick={validate}>Validate</button><button onClick={runPrediction} disabled={busy || !rows.length}>{busy ? "Running…" : "Run prediction"}</button>{busy && <button className="secondary" onClick={() => abortRef.current?.abort()}>Cancel</button>}<button className="ghost" onClick={() => { setRows([]); setCsvText(""); setResponse(null); setErrors([]); setNotice("Cleared."); }}>Clear</button></div>

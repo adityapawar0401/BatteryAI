@@ -22,10 +22,18 @@ DEFAULT_ARTIFACT_DIR = ROOT / "_inputs" / "artifacts" / "oxford_final"
 PAIRING_TOKEN = os.environ.get("BATTERYAI_PAIRING_TOKEN") or secrets.token_urlsafe(32)
 
 
+def artifact_dir_from_environment() -> Path:
+    artifact_dir = Path(os.environ.get("BATTERYAI_ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR))).resolve()
+    try:
+        artifact_dir.relative_to(ROOT.resolve())
+    except ValueError as error:
+        raise ValueError("BATTERYAI_ARTIFACT_DIR must remain inside the deployment repository") from error
+    return artifact_dir
+
+
 @lru_cache(maxsize=1)
 def get_engine() -> BatteryAIEngine:
-    artifact_dir = Path(os.environ.get("BATTERYAI_ARTIFACT_DIR", str(DEFAULT_ARTIFACT_DIR)))
-    return BatteryAIEngine(artifact_dir, os.environ.get("BATTERYAI_DEVICE", "auto"))
+    return BatteryAIEngine(artifact_dir_from_environment(), os.environ.get("BATTERYAI_DEVICE", "auto"))
 
 
 def require_token(x_batteryai_token: str | None = Header(default=None)) -> None:

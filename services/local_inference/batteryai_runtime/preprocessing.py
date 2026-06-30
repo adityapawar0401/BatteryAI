@@ -22,7 +22,10 @@ class ScalerState:
 
     @classmethod
     def from_dict(cls, state: dict) -> "ScalerState":
-        return cls(
+        required = {"feature_mean", "feature_std", "diagnostic_mean", "diagnostic_std", "target_mean", "target_std"}
+        if set(state) < required:
+            raise ValueError(f"Oxford scaler state is missing fields: {sorted(required - set(state))}")
+        scaler = cls(
             np.asarray(state["feature_mean"], dtype=np.float32),
             np.asarray(state["feature_std"], dtype=np.float32),
             {k: float(v) for k, v in state["diagnostic_mean"].items()},
@@ -30,6 +33,22 @@ class ScalerState:
             float(state["target_mean"]),
             float(state["target_std"]),
         )
+        if scaler.feature_mean.shape != (4,) or scaler.feature_std.shape != (4,):
+            raise ValueError("Oxford core scaler must contain exactly four feature values")
+        if set(scaler.diagnostic_mean) != set(DIAGNOSTIC_CHANNELS) or set(scaler.diagnostic_std) != set(DIAGNOSTIC_CHANNELS):
+            raise ValueError("Oxford diagnostic scaler channels do not match the deployment adapter")
+        numeric = np.concatenate([
+            scaler.feature_mean,
+            scaler.feature_std,
+            np.asarray(list(scaler.diagnostic_mean.values())),
+            np.asarray(list(scaler.diagnostic_std.values())),
+            np.asarray([scaler.target_mean, scaler.target_std]),
+        ])
+        if not np.isfinite(numeric).all():
+            raise ValueError("Oxford scaler values must be finite")
+        if (scaler.feature_std <= 0).any() or any(value <= 0 for value in scaler.diagnostic_std.values()) or scaler.target_std <= 0:
+            raise ValueError("Oxford scaler standard deviations must be positive")
+        return scaler
 
     def inverse_location(self, value: torch.Tensor) -> torch.Tensor:
         return value * self.target_std + self.target_mean

@@ -20,10 +20,10 @@ class CurveRow(StrictModel):
     target_checkpoint: str = Field(min_length=1, max_length=128)
     modality: Literal["C1ch", "C1dc", "OCVch", "OCVdc"] = "C1ch"
     point_index: int = Field(ge=0)
-    time_s: float
-    voltage_V: float
-    capacity_Ah: float
-    temperature_K: float
+    time_s: float = Field(ge=0)
+    voltage_V: float = Field(ge=0, le=10)
+    capacity_Ah: float = Field(ge=-20, le=20)
+    temperature_K: float = Field(ge=200, le=500)
     actual_soh: float | None = Field(default=None, ge=0, le=150)
 
     @field_validator("time_s", "voltage_V", "capacity_Ah", "temperature_K", "actual_soh")

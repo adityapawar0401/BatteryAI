@@ -43,7 +43,7 @@ The fixture is a software-integrity example from a final-training cell, not an u
 
 Browser ONNX ML: **Unavailable for Oxford V1.** The real `torch.onnx.export(dynamo=True)` attempt stopped during graph capture on the history transformer's data-dependent causal-mask guard (`Eq(u0, 1)`). No ONNX file was retained. The frontend contains a real lazy ONNX Runtime Web provider, but the Oxford profile keeps it disabled until export, dynamic batch/sequence parity, browser loading and asset gates all pass.
 
-Local ML: **Available on CUDA and CPU.** Actual CUDA inference passed on the NVIDIA GeForce GTX 1650, returned the same prediction and uncertainty, and completed in about 570 ms for the 3,510-point fixture. Auto prefers CUDA and retries one CUDA out-of-memory failure on CPU when enabled.
+Local ML: **Available on CUDA and CPU.** Actual CUDA inference passed on the NVIDIA GeForce GTX 1650 and returned the same prediction and uncertainty as CPU. Auto prefers CUDA and retries one CUDA out-of-memory failure on CPU when enabled. The local client rejects non-loopback endpoints and requires the engine checkpoint hash to match the configured finalized profile before inference.
 
 Browser LLM: **Available when WebGPU and browser resources permit.** Installed WebLLM `prebuiltAppConfig.model_list` contains the configured `Qwen2.5-0.5B-Instruct-q4f16_1-MLC`. It loads lazily in a worker, receives only a bounded prediction summary, returns schema-validated JSON, uses no API key or cloud generation fallback, and cannot alter numerical predictions.
 
@@ -56,11 +56,11 @@ The local engine binds to `127.0.0.1`, generates a cryptographically random star
 `scripts\test-all.ps1` passed:
 
 - Preflight/checksum: passed.
-- Python: 15 passed, including strict loading, CPU/CUDA/auto device inference, CUDA-to-CPU retry, determinism, finite output, inverse scaling, exact active/masked experts, no parameter mutation, single/batch parity, malformed input and limits, local API auth/inference, real fixture integration.
-- Frontend: 9 passed across four files, including strict config, CSV parsing/order, local pairing header, and safe suggestion schema.
+- Python: 18 passed, including strict loading, CPU/CUDA/auto device inference, CUDA-to-CPU retry, determinism, finite output, inverse scaling, exact active/masked experts, no parameter mutation, single/batch parity, scaler/checkpoint consistency, malformed physical units and limits, local API auth/CORS/inference, and real fixture integration.
+- Frontend: 17 passed across five files, including strict config/profile constraints, CSV parsing/order/unit/upload limits, loopback-only pairing, checkpoint identity, cancellation-safe Auto behavior, pairing headers, and bounded suggestion schema.
 - TypeScript: passed.
 - Production Vite/GitHub Pages build: passed; root `index.html` present.
-- Static artifact scan: no `model.pt`, `.mat`, `.onnx`, `_inputs`, secret, or absolute user path.
+- Static artifact scan: no `model.pt`, `.mat`, `.onnx`, `_inputs`, supplied environment, local report, pairing-token text, raw dataset name, or absolute user path.
 - Production-code scan: no unresolved TODO/FIXME, placeholder, dummy, fake, or machine-specific absolute path occurrence.
 
 Build warnings are limited to lazy WebLLM chunk size and an ONNX WASM URL that is irrelevant while Oxford browser ML is disabled. They do not change the profile capability result.

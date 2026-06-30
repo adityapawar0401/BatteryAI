@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import copy
 
 import pytest
 import torch
@@ -21,9 +22,11 @@ def test_strict_model_and_active_experts(cpu_engine):
     assert len(cpu_engine.model.state_dict()) == 273
     assert not cpu_engine.model.training
     assert all(not parameter.requires_grad for parameter in cpu_engine.model.parameters())
+    assert sum(parameter.numel() for parameter in cpu_engine.model.parameters()) == 19_508_239
 
 
 def test_cpu_prediction_is_finite_stable_and_physical(cpu_engine, inference_request):
+    before = {name: parameter.detach().clone() for name, parameter in cpu_engine.model.named_parameters()}
     first = cpu_engine.predict(inference_request)
     second = cpu_engine.predict(inference_request)
     a, b = first.results[0], second.results[0]
@@ -34,6 +37,7 @@ def test_cpu_prediction_is_finite_stable_and_physical(cpu_engine, inference_requ
     assert a.predicted_soh == pytest.approx(b.predicted_soh, abs=1e-6)
     assert a.active_experts == ACTIVE_EXPERTS
     assert a.absolute_error == pytest.approx(abs(a.predicted_soh - a.actual_soh))
+    assert all(torch.equal(before[name], parameter) for name, parameter in cpu_engine.model.named_parameters())
 
 
 def test_masked_experts_have_zero_routing_weight(cpu_engine, inference_request):
@@ -111,6 +115,29 @@ def test_malformed_order_and_units_rejected(inference_request):
     wrong_unit["temperature_C"] = wrong_unit.pop("temperature_K")
     with pytest.raises(ValidationError):
         InferenceRequest.model_validate({"rows": [wrong_unit, inference_request.rows[1].model_dump()]})
+    for field, malformed in (("temperature_K", 40), ("capacity_Ah", 724), ("voltage_V", 4200), ("time_s", -1)):
+        bad_rows = [row.model_dump() for row in inference_request.rows[:2]]
+        bad_rows[0][field] = malformed
+        with pytest.raises(ValidationError, match=field):
+            InferenceRequest.model_validate({"rows": bad_rows})
+
+
+def test_scaler_contract_is_strict(cpu_engine):
+    from batteryai_runtime.preprocessing import ScalerState
+
+    metadata = torch.load(cpu_engine.checkpoint_path, map_location="cpu", weights_only=False)["metadata"]["dataset_preprocessing"]["oxford"]
+    file_state = {
+        "feature_mean": cpu_engine.scaler.feature_mean.tolist(), "feature_std": cpu_engine.scaler.feature_std.tolist(),
+        "diagnostic_mean": cpu_engine.scaler.diagnostic_mean, "diagnostic_std": cpu_engine.scaler.diagnostic_std,
+        "target_mean": cpu_engine.scaler.target_mean, "target_std": cpu_engine.scaler.target_std,
+    }
+    cpu_engine._verify_scaler_contract(file_state, metadata)
+    invalid = copy.deepcopy(file_state); invalid["target_std"] = 0
+    with pytest.raises(ValueError, match="positive"):
+        ScalerState.from_dict(invalid)
+    mismatched = copy.deepcopy(file_state); mismatched["target_mean"] += 1
+    with pytest.raises(ValueError, match="checkpoint metadata"):
+        cpu_engine._verify_scaler_contract(mismatched, metadata)
 
 
 def test_row_and_sequence_limits(inference_request):

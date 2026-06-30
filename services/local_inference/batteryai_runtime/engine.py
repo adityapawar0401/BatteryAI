@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 import torch
+import numpy as np
 
 from battery_pimoe.config.schemas import ModelConfig
 from battery_pimoe.model.factory import build_model
@@ -38,9 +39,25 @@ class BatteryAIEngine:
             parameter.requires_grad_(False)
         scaler_data = json.loads((self.artifact_dir / "dataset_preprocessing" / "oxford_scaler_state").read_text(encoding="utf-8"))
         self.scaler = ScalerState.from_dict(scaler_data)
+        checkpoint_scaler = metadata.get("dataset_preprocessing", {}).get("oxford")
+        if not checkpoint_scaler:
+            raise ValueError("checkpoint is missing the Oxford preprocessing contract")
+        self._verify_scaler_contract(scaler_data, checkpoint_scaler)
         self.requested_device = device
         self.device = self._resolve_device(device)
         self.model.to(self.device)
+
+    @staticmethod
+    def _verify_scaler_contract(file_state: dict, checkpoint_state: dict) -> None:
+        for key in ("feature_mean", "feature_std"):
+            if not np.array_equal(np.asarray(file_state[key]), np.asarray(checkpoint_state[key])):
+                raise ValueError(f"Oxford scaler {key} does not match checkpoint metadata")
+        for key in ("diagnostic_mean", "diagnostic_std"):
+            if file_state[key] != checkpoint_state[key]:
+                raise ValueError(f"Oxford scaler {key} does not match checkpoint metadata")
+        for key in ("target_mean", "target_std"):
+            if float(file_state[key]) != float(checkpoint_state[key]):
+                raise ValueError(f"Oxford scaler {key} does not match checkpoint metadata")
 
     def _verify_checksum(self) -> str:
         if not self.checkpoint_path.is_file():
@@ -71,7 +88,6 @@ class BatteryAIEngine:
         ordered_groups = [sorted(rows, key=lambda row: row.point_index) for rows in grouped.values()]
         batch = build_batch(self.model, ordered_groups, self.scaler, device)
         preprocessed = time.perf_counter()
-        before = {name: parameter.detach().cpu().clone() for name, parameter in self.model.named_parameters()}
         with torch.inference_mode():
             output = self.model(batch)
         inferred = time.perf_counter()
@@ -79,8 +95,6 @@ class BatteryAIEngine:
         scale = self.scaler.inverse_scale(output["soh"]["scale"])
         if not torch.isfinite(location).all() or not torch.isfinite(scale).all() or (scale < 0).any():
             raise FloatingPointError("model returned invalid SOH or uncertainty")
-        if any(not torch.equal(before[name], parameter.detach().cpu()) for name, parameter in self.model.named_parameters()):
-            raise RuntimeError("model parameter mutation detected during inference")
         request_id = str(uuid.uuid4())
         results = []
         total_ms = (time.perf_counter() - started) * 1000

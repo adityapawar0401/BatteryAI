@@ -53,6 +53,10 @@ describe("Local Ollama suggestion interaction", () => {
     expect(provider.generate).toHaveBeenCalledWith(expect.objectContaining({ predicted_soh: 88 }), expect.any(AbortSignal));
     await act(async () => resolveGeneration(completed));
     expect(await screen.findByText("Review complete")).toBeInTheDocument(); expect(screen.getByText(/Local LLM: completed/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByText("Inspect", { selector: "li" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cautions" })).toBeInTheDocument();
+    expect(screen.getByText("Decision support only", { selector: "li" })).toBeInTheDocument();
   });
 
   it("shows generation errors and supports cancellation", async () => {
@@ -65,5 +69,31 @@ describe("Local Ollama suggestion interaction", () => {
     fireEvent.click(screen.getByRole("button", { name: "Generate suggestions" }));
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.getByText(/cancelled/)).toBeInTheDocument());
+  });
+
+  it("does not complete or render empty headings for incomplete responses and remains retryable", async () => {
+    const provider = new FakeProvider();
+    provider.generate
+      .mockResolvedValueOnce({ ...completed, suggestions: { summary: "Incomplete", actions: [], cautions: ["Uncertain"] } })
+      .mockResolvedValueOnce(completed);
+    render(<><output aria-label="numerical prediction">97.00</output><SuggestionPanel paired latestResult={prediction(97)} provider={provider} /></>);
+    fireEvent.click(await screen.findByRole("button", { name: "Generate suggestions" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/safe display schema/);
+    expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Cautions" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("97.00");
+    fireEvent.click(screen.getByRole("button", { name: "Generate suggestions" }));
+    expect(await screen.findByText("Review complete")).toBeInTheDocument();
+    expect(provider.generate).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("97.00");
+  });
+
+  it("shows the structured incomplete-suggestions error and keeps Generate usable", async () => {
+    const provider = new FakeProvider();
+    provider.generate.mockRejectedValue(new Error("The local LLM returned incomplete structured suggestions."));
+    render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Generate suggestions" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("The local LLM returned incomplete structured suggestions.");
+    expect(screen.getByRole("button", { name: "Generate suggestions" })).toBeEnabled();
   });
 });

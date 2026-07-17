@@ -110,7 +110,7 @@ def test_suggestion_concurrency_does_not_queue(monkeypatch):
     class BlockingClient:
         async def generate(self, _payload):
             entered.set(); await asyncio.to_thread(release.wait, 5)
-            return SuggestionResponse(suggestions=SuggestionContent(summary="ok", actions=[], cautions=[]), timing=SuggestionTiming(total_ms=1))
+            return SuggestionResponse(suggestions=SuggestionContent(summary="ok", actions=["Inspect"], cautions=["Uncertain"]), timing=SuggestionTiming(total_ms=1))
     monkeypatch.setattr(app_module, "get_ollama_client", lambda: BlockingClient())
     client = TestClient(app_module.create_app(local_config()))
     with ThreadPoolExecutor(max_workers=1) as pool:

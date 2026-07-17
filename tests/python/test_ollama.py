@@ -134,6 +134,77 @@ def test_successful_structured_completion_is_bounded_and_preserves_input_numbers
     assert response.timing.ollama_total_ms == 2.0
 
 
+@pytest.mark.parametrize(
+    "content",
+    [
+        {"summary": "Review", "actions": [], "cautions": ["Uncertain"]},
+        {"summary": "Review", "actions": ["Inspect"], "cautions": []},
+        {"summary": "   ", "actions": ["Inspect"], "cautions": ["Uncertain"]},
+        {"summary": "Review", "actions": ["   "], "cautions": ["Uncertain"]},
+        {"summary": "Review", "actions": ["Inspect"], "cautions": ["   "]},
+        {"summary": "Review", "actions": ["1", "2", "3", "4", "5"], "cautions": ["Uncertain"]},
+        {"summary": "Review", "actions": ["Inspect"], "cautions": [1]},
+    ],
+)
+def test_incomplete_suggestion_content_is_rejected(content):
+    with pytest.raises(ValidationError):
+        SuggestionContent.model_validate(content)
+
+
+def test_valid_suggestion_content_is_trimmed_and_schema_matches_runtime_contract():
+    content = SuggestionContent.model_validate({"summary": "  Review  ", "actions": ["  Inspect trend  "], "cautions": ["  Decision support only  "]})
+    assert content.model_dump() == {"summary": "Review", "actions": ["Inspect trend"], "cautions": ["Decision support only"]}
+    schema = SuggestionContent.model_json_schema()
+    assert schema["properties"]["actions"]["minItems"] == 1 and schema["properties"]["actions"]["maxItems"] == 4
+    assert schema["properties"]["cautions"]["minItems"] == 1 and schema["properties"]["cautions"]["maxItems"] == 4
+    assert schema["properties"]["actions"]["items"]["minLength"] == 1
+    assert schema["properties"]["cautions"]["items"]["minLength"] == 1
+    assert schema["additionalProperties"] is False
+
+
+def test_invalid_first_completion_retries_once_with_same_bounded_summary_then_succeeds():
+    requests = []
+    completions = [
+        {"summary": "Review", "actions": [], "cautions": ["Uncertain"]},
+        {"summary": "Review", "actions": ["Inspect the trend"], "cautions": ["Decision support only"]},
+    ]
+
+    def handler(request):
+        if request.url.path == "/api/version": return httpx.Response(200, json={"version": "0.30.11"})
+        if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
+        body = json.loads(request.content); requests.append(body)
+        return httpx.Response(200, json={"message": {"content": json.dumps(completions[len(requests) - 1])}})
+
+    source = summary()
+    before = source.model_dump()
+    response = run(client_for(handler).generate(source))
+    assert response.suggestions.actions == ["Inspect the trend"]
+    assert source.model_dump() == before
+    assert len(requests) == 2
+    assert requests[0]["messages"][1]["content"] == requests[1]["messages"][1]["content"]
+    assert "BEGIN BATTERYAI_PREDICTION_DATA" in requests[1]["messages"][1]["content"]
+    assert "rows" not in requests[1]["messages"][1]["content"]
+    assert app_module.PAIRING_TOKEN not in json.dumps(requests[1])
+    assert "at least one non-empty" in requests[1]["messages"][-1]["content"]
+
+
+def test_two_incomplete_completions_stop_after_one_retry_with_structured_error():
+    chat_calls = 0
+
+    def handler(request):
+        nonlocal chat_calls
+        if request.url.path == "/api/version": return httpx.Response(200, json={"version": "0.30.11"})
+        if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
+        chat_calls += 1
+        return httpx.Response(200, json={"message": {"content": json.dumps({"summary": "Review", "actions": [], "cautions": ["Uncertain"]})}})
+
+    with pytest.raises(SuggestionServiceError) as raised:
+        run(client_for(handler).generate(summary()))
+    assert chat_calls == 2
+    assert raised.value.code == "incomplete_suggestions" and raised.value.status_code == 502
+    assert raised.value.message == "The local LLM returned incomplete structured suggestions."
+
+
 def test_timeout_is_structured():
     def timeout(request):
         raise httpx.ReadTimeout("slow", request=request)
@@ -143,23 +214,19 @@ def test_timeout_is_structured():
     assert raised.value.code == "ollama_timeout" and raised.value.status_code == 504
 
 
-@pytest.mark.parametrize(
-    "content,code",
-    [
-        ("not json", "ollama_response_invalid"),
-        (json.dumps({"summary": "x", "actions": [], "cautions": [], "predicted_soh": 1}), "ollama_schema_invalid"),
-        (json.dumps({"summary": "<b>unsafe</b>", "actions": [], "cautions": []}), "ollama_schema_invalid"),
-    ],
-)
-def test_malformed_or_schema_invalid_model_output_is_rejected(content, code):
+def test_malformed_json_is_rejected_without_retry():
+    chat_calls = 0
     def handler(request):
+        nonlocal chat_calls
         if request.url.path == "/api/version": return httpx.Response(200, json={"version": "0.30.11"})
         if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
-        return httpx.Response(200, json={"message": {"content": content}})
+        chat_calls += 1
+        return httpx.Response(200, json={"message": {"content": "not json"}})
 
     with pytest.raises(SuggestionServiceError) as raised:
         run(client_for(handler).generate(summary()))
-    assert raised.value.code == code
+    assert raised.value.code == "ollama_response_invalid"
+    assert chat_calls == 1
 
 
 def test_missing_model_generation_returns_exact_command():
@@ -193,7 +260,7 @@ def test_protected_suggestion_api_returns_typed_response_without_mutating_summar
 
         async def generate(self, payload):
             captured.append(payload.model_copy(deep=True))
-            return SuggestionResponse(suggestions=SuggestionContent(summary="Review", actions=[], cautions=[]), timing=SuggestionTiming(total_ms=1))
+            return SuggestionResponse(suggestions=SuggestionContent(summary="Review", actions=["Inspect"], cautions=["Uncertain"]), timing=SuggestionTiming(total_ms=1))
 
     monkeypatch.setattr(app_module, "get_ollama_client", lambda: FakeClient())
     source = summary()
@@ -202,6 +269,18 @@ def test_protected_suggestion_api_returns_typed_response_without_mutating_summar
     assert response.json()["provider"] == "ollama" and response.json()["model"] == OLLAMA_MODEL
     assert captured[0].model_dump() == source.model_dump()
     assert "predicted_soh" not in response.json()["suggestions"]
+
+
+def test_protected_api_returns_structured_incomplete_suggestions_error(monkeypatch):
+    class IncompleteClient:
+        async def generate(self, _payload):
+            raise SuggestionServiceError("incomplete_suggestions", "The local LLM returned incomplete structured suggestions.", 502)
+
+    monkeypatch.setattr(app_module, "get_ollama_client", lambda: IncompleteClient())
+    response = TestClient(app_module.app).post("/v1/suggestions", headers={"X-BatteryAI-Token": app_module.PAIRING_TOKEN}, json=summary().model_dump())
+    assert response.status_code == 502
+    assert response.json()["code"] == "incomplete_suggestions"
+    assert response.json()["message"] == "The local LLM returned incomplete structured suggestions."
 
 
 def test_health_and_startup_remain_available_without_ollama(monkeypatch):

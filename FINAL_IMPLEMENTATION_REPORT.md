@@ -1,5 +1,61 @@
 # BatteryAI final implementation report
 
+## Incomplete-suggestions defect correction — 2026-06-30
+
+### Root cause
+
+`SuggestionContent.actions` and `SuggestionContent.cautions` previously used `Field(max_length=5)` without `min_length`. Pydantic therefore generated `maxItems` but no `minItems` in the exact schema sent to Ollama, and the same Python model accepted `[]`. The shared `BoundedText` used `min_length=1`, but validation occurred before any trimming, so whitespace-only strings also counted as non-empty. The frontend mirrored those permissive zero-to-five bounds and rendered headings unconditionally. That is why a genuine HTTP 200 response could contain an empty Actions list and still be treated as completed.
+
+### Correction and retry behavior
+
+- The generated Ollama JSON Schema and Python model now both require a trimmed non-empty summary, one to four actions, one to four cautions, non-empty strings, bounded string lengths, and no additional properties.
+- Surrounding whitespace is trimmed. No list entry is removed or repaired silently; blank/non-string entries and excess items are rejected.
+- The fixed prompt normally requests two to four concrete monitoring/review actions and one to four cautions while retaining a hard minimum of one. It continues to forbid RUL estimates, safety certification, numerical overrides, invented data, raw rows, and arbitrary prompts.
+- Syntactically valid JSON that fails typed suggestion-content validation receives at most one retry. The retry uses the identical bounded prediction summary and one fixed corrective system instruction. It does not include raw rows, paths, the pairing token, or the raw failed completion.
+- Malformed JSON, missing response content, network failures, timeouts, cancellation, authentication, rate limits, and other service errors are not retried. A second invalid completion returns HTTP 502 code `incomplete_suggestions`; incomplete content never returns HTTP 200.
+- The browser validates the same one-to-four-item contract. `SuggestionPanel` validates again before storing completion, never renders empty Actions/Cautions headings, displays the structured error, preserves the numerical result, and leaves **Generate suggestions** usable.
+
+### Exact files changed
+
+- `services/local_inference/batteryai_runtime/ollama.py`
+- `tests/python/test_ollama.py`
+- `tests/python/test_remote_deployment.py` (test fixture updated to the stricter suggestion contract only)
+- `apps/web/src/llm/schema.ts`
+- `apps/web/src/llm/schema.test.ts`
+- `apps/web/src/llm/provider.test.ts`
+- `apps/web/src/llm/SuggestionPanel.tsx`
+- `apps/web/src/llm/SuggestionPanel.test.tsx`
+- `docs/local-llm.md`
+- `FINAL_IMPLEMENTATION_REPORT.md`
+
+### Verification
+
+- Targeted Ollama Python tests: **26 passed**.
+- Targeted frontend LLM tests: **20 passed**.
+- Final Python suite: **57 passed, 0 failed**.
+- Final frontend suite: **38 passed, 0 failed across 8 files**.
+- TypeScript: **passed**.
+- `scripts/test-all.ps1`: **passed**.
+- Production GitHub Pages build and static artifact scan: **passed**.
+- Numerical CUDA regression and finalized checkpoint SHA-256: **passed and unchanged**.
+- Local and configured-remote frontend providers use the identical protected `/v1/suggestions` contract; deterministic tests cover both origins.
+
+One genuine protected `/v1/infer` → `/v1/suggestions` run used the finalized Oxford fixture and local `llama3.2:3b`. It returned HTTP 200 only with **3 populated actions** and **2 populated cautions**. Redacted response:
+
+```json
+{
+  "provider": "ollama",
+  "model": "llama3.2:3b",
+  "suggestions": {
+    "summary": "Battery Health: Cautionary Review",
+    "actions": ["[redacted concrete action]", "[redacted]", "[redacted]"],
+    "cautions": ["[redacted caution]", "[redacted]"]
+  }
+}
+```
+
+The four authoritative numerical fields before and after generation were identical. No Battery-PIMoE, checkpoint, Oxford preprocessing, numerical inference/schema, CUDA/CPU behavior, deployment/Tailscale, pairing, CORS, rate-limit, `llama3.2:3b`, browser ONNX, `_inputs`, or model-artifact implementation file changed.
+
 ## Stable remote deployment finalization — 2026-06-30
 
 This section is the authoritative final result for the remote-deployment change and supersedes the older baseline counts later in this report.

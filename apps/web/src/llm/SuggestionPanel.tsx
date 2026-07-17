@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PredictionResult } from "../types";
 import { OLLAMA_MODEL, OLLAMA_PULL_COMMAND, type LocalLlmCapabilities, type SuggestionProvider } from "./provider";
-import type { Suggestions } from "./schema";
+import { parseSuggestions, type Suggestions } from "./schema";
 
 export type LocalLlmStatus = "unavailable" | "checking" | "ready" | "generating" | "completed" | "error";
 
@@ -64,7 +64,7 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
     try {
       const response = await provider.generate(result, controller.signal);
       if (resultKey(latestResultRef.current) !== requestedKey) { setStatus("ready"); setMessage("Prediction updated. Generate suggestions for the latest result."); return; }
-      setSuggestions(response.suggestions); setStatus("completed"); setMessage(`Completed locally in ${response.timing.total_ms.toFixed(0)} ms.`);
+      setSuggestions(parseSuggestions(response.suggestions)); setStatus("completed"); setMessage(`Completed locally in ${response.timing.total_ms.toFixed(0)} ms.`);
     } catch (generationError) {
       if (generationError instanceof DOMException && generationError.name === "AbortError") { setStatus("ready"); setMessage("Suggestion generation cancelled."); return; }
       setStatus("error"); setError(generationError instanceof Error ? generationError.message : "Local suggestion generation failed.");
@@ -85,7 +85,7 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
       {canGenerate && <button onClick={generate}>Generate suggestions</button>}
       {status === "generating" && <button className="secondary" onClick={() => generationAbort.current?.abort()}>Cancel</button>}
     </div>
-    {suggestions ? <div><h3>{suggestions.summary}</h3><h4>Actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul><h4>Cautions</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></div>
+    {suggestions ? <div><h3>{suggestions.summary}</h3>{suggestions.actions.length > 0 && <><h4>Actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul></>}{suggestions.cautions.length > 0 && <><h4>Cautions</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></>}</div>
       : <div className="empty">{latestResult ? (capability?.ready ? "Local Ollama is ready to interpret the latest completed prediction." : `Suggestions require local ${OLLAMA_MODEL}.`) : "Complete a numerical prediction to enable suggestions."}</div>}
     {capability && !capability.model_installed && !capability.corrective_command && <p className="muted">If the model is missing, run <code>{OLLAMA_PULL_COMMAND}</code>.</p>}
     <p className="warning">AI-generated decision support only—not a safety certification. Suggestions cannot change the numerical prediction above.</p>

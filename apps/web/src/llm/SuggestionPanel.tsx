@@ -73,21 +73,23 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
 
   const canGenerate = paired && !!latestResult && !!capability?.ready && ["ready", "completed", "error"].includes(status);
 
-  return <section className="card suggestion" aria-labelledby="suggestion-heading">
-    <p className="eyebrow">4 · Optional interpretation</p><h2 id="suggestion-heading">AI-generated suggestions</h2>
+  return <section className="dash-section" id="suggestions" aria-labelledby="suggestion-heading">
+    <div className="dash-section__head"><div>
+      <p className="eyebrow">Suggestions</p><h2 id="suggestion-heading">AI-generated suggestions</h2>
+    </div></div>
     <p>Provider: <strong>Local Ollama</strong> · Model: <strong>{OLLAMA_MODEL}</strong></p>
-    <p>The paired BatteryAI service sends only a bounded prediction summary to Ollama on loopback.</p>
-    <p className="notice" role="status"><strong>Local LLM: {status}</strong> — {message}</p>
-    {error && <p className="error" role="alert">{error}</p>}
-    {capability?.corrective_command && <p className="error">Run: <code>{capability.corrective_command}</code></p>}
-    <div className="actions">
-      {paired && ["unavailable", "error"].includes(status) && <button className="secondary" onClick={() => void check()}>Check local LLM</button>}
-      {canGenerate && <button onClick={generate}>Generate suggestions</button>}
-      {status === "generating" && <button className="secondary" onClick={() => generationAbort.current?.abort()}>Cancel</button>}
+    <p className="dash-hint">The paired BatteryAI service sends only a bounded prediction summary to Ollama on loopback.</p>
+    <p className="dash-notice" role="status"><strong>Local LLM: {status}</strong> — {message}</p>
+    {error && <p className="dash-error" role="alert">{error}</p>}
+    {capability?.corrective_command && <p className="dash-error">Run: <code>{capability.corrective_command}</code></p>}
+    <div className="dash-actions dash-actions--wrap">
+      {paired && ["unavailable", "error"].includes(status) && <button type="button" className="btn btn--secondary" onClick={() => void check()}>Check local LLM</button>}
+      {canGenerate && <button type="button" className="btn" onClick={generate}>Generate suggestions</button>}
+      {status === "generating" && <button type="button" className="btn btn--secondary" onClick={() => generationAbort.current?.abort()}>Cancel</button>}
     </div>
-    {suggestions ? <div><h3>{suggestions.summary}</h3>{suggestions.actions.length > 0 && <><h4>Actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul></>}{suggestions.cautions.length > 0 && <><h4>Cautions</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></>}</div>
-      : <div className="empty">{latestResult ? (capability?.ready ? "Local Ollama is ready to interpret the latest completed prediction." : `Suggestions require local ${OLLAMA_MODEL}.`) : "Complete a numerical prediction to enable suggestions."}</div>}
-    {capability && !capability.model_installed && !capability.corrective_command && <p className="muted">If the model is missing, run <code>{OLLAMA_PULL_COMMAND}</code>.</p>}
-    <p className="warning">AI-generated decision support only—not a safety certification. Suggestions cannot change the numerical prediction above.</p>
+    {suggestions ? <div className="suggestion-output"><h3>{suggestions.summary}</h3>{suggestions.actions.length > 0 && <><h4 className="mono">Actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul></>}{suggestions.cautions.length > 0 && <><h4 className="mono">Cautions</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></>}</div>
+      : <div className="dash-empty">{latestResult ? (capability?.ready ? "Local Ollama is ready to interpret the latest completed prediction." : `Suggestions require local ${OLLAMA_MODEL}.`) : "Complete a numerical prediction to enable suggestions."}</div>}
+    {capability && !capability.model_installed && !capability.corrective_command && <p className="dash-hint">If the model is missing, run <code>{OLLAMA_PULL_COMMAND}</code>.</p>}
+    <p className="dash-warning">AI-generated decision support only—not a safety certification. Suggestions cannot change the numerical prediction above.</p>
   </section>;
 }

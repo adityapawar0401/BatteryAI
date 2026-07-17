@@ -1,5 +1,65 @@
 # BatteryAI final implementation report
 
+## Landing page and dashboard UI/UX revamp — 2026-07-17
+
+### Scope
+
+Frontend architecture and UI/UX only. The single-page `App.tsx` became two real static pages: a backend-free landing page and the existing application as a dashboard. No Python, model, checkpoint, preprocessing, inference, pairing, CORS, rate-limiting, Ollama or Funnel behavior was touched.
+
+| | Public URL | Local development | Artifact |
+| --- | --- | --- | --- |
+| Landing page | `https://adityapawar0401.github.io/BatteryAI/` | `http://localhost:5173/` | `dist/index.html` |
+| Dashboard | `https://adityapawar0401.github.io/BatteryAI/dashboard/` | `http://localhost:5173/dashboard/` | `dist/dashboard/index.html` |
+
+### Routing and base path
+
+A Vite multi-page build emits two real HTML entries, so `/BatteryAI/dashboard/` is a static file and direct navigation plus browser refresh cannot produce a Pages 404. No SPA fallback or `404.html` redirect is involved. The build base is absolute and defaults to `/BatteryAI/` (override with `BATTERYAI_PAGES_BASE`); the dev server uses `/`. Every internal link and runtime asset URL is derived from the Vite base via `apps/web/src/routes.ts`; nothing hard-codes `/`, `/dashboard/` or a domain-root asset path.
+
+### Exact files changed
+
+- Added: `apps/web/dashboard/index.html`, `src/dashboard-main.tsx`, `src/routes.ts`, `src/ui/useOverlayDismiss.ts`, `src/ui/LimitationsPanel.tsx`, `src/styles/{tokens,components,landing,dashboard}.css`, `src/landing/{LandingPage,LandingNav,LandingFooter,NeuralBackdrop,Reveal,CursorHalo}.tsx`, `src/dashboard/{DashboardPage,DashboardSidebar,DashboardHeader,StatusBadge,OverviewSection,DataInputSection,ValidationSection,PredictionSection,SystemStatusSection,DataSeriesChart}.tsx`, `src/dashboard/summary.ts`, `docs/design-references/README.md`.
+- Changed: `apps/web/index.html`, `src/main.tsx`, `vite.config.ts` (base + MPA inputs), `src/test-setup.ts` (jsdom canvas/matchMedia shims), `src/llm/SuggestionPanel.tsx` (class names, section id and eyebrow only — logic, labels, roles and validation unchanged), `.github/workflows/pages.yml`, `scripts/build-pages.ps1`, `README.md`, `START_HERE.md`, `docs/architecture.md`, `docs/github-pages.md`.
+- Removed: `apps/web/src/App.tsx` and `src/styles.css`, superseded by `DashboardPage` and the scoped stylesheets. Also `apps/web/vite.config.js` and `vite.config.d.ts` — see below.
+- Moved: `landingpage.txt` and `dashboard.txt` to `docs/design-references/`; they are non-runtime references, are never bundled, and the build fails if either reaches `dist`.
+- Tests added: `src/routes.test.ts`, `src/landing/LandingPage.test.tsx`, `src/dashboard/DashboardPage.test.tsx`, `src/dashboard/DataSeriesChart.test.tsx`, `src/dashboard/summary.test.ts`. `src/App.remote.test.tsx` moved to `src/dashboard/DashboardPage.remote.test.tsx` with its assertions unchanged.
+
+### Preserved behavior
+
+`DashboardPage` holds the state and provider ownership that `App.tsx` had, with one provider instance each for local HTTP inference, browser ONNX and local Ollama suggestions. CSV upload, paste, editable table, supplied example, validation rules and messages, backend selection, pairing, cancellation, export, `sessionStorage`-only token, remote-mode Funnel lock, and the suggestion panel's readiness, retry, cancellation and schema rejection are unchanged. Added state is limited to presentation: mobile navigation open/closed and a `validated` flag for the validation status badge.
+
+### Accuracy of content
+
+The landing page renders the active experts, target, browser-ONNX reason and model limitations from `public/config/oxford-v1.json` at build time, plus deployment-level limitations shared with the dashboard's System Status. The design references' 99.8% accuracy claim, `Transformer-V4.2` label, adaptive-charging and thermal-optimization features, live data stream, system-health percentage, KPI tiles, 48-cell pack visualization, deployment-request form, fake social links and CDN Tailwind script are excluded; tests and the artifact scan assert their absence. Charts are drawn only from supplied rows using deterministic evenly-spaced downsampling that keeps the first and last point, and they disclose the sampling in an accessible summary.
+
+### Defects found and fixed during review
+
+- The `.dash-body` grid took a min-content floor from the wide editable table, stretching every section past the viewport where `overflow-x: hidden` silently clipped it. Fixed with `min-width: 0` on the grid items so the table scrolls inside `.table-wrap`.
+- A wrapping `<label>` folded the option text into the backend select's accessible name (`BackendAutoBrowserHost`). Fixed with explicit `htmlFor`/`id` association and covered by a test.
+- Chart bounds rendered side by side, reading as an x-axis range. Fixed to y-axis ticks at the top and bottom of the plot with a labelled x-axis.
+- The mobile header truncated the backend URL to `http…`. The endpoint badge is now hidden below 900px, where System Status and the prediction form still show it in full.
+- A blanket `.landing > *:not(.landing__backdrop) { position: relative }` stacking rule outranked both the nav's `position: sticky` and the skip link's `position: absolute`. The landing nav therefore scrolled away instead of sticking, and the skip link stayed in flow as a 26px phantom gap above the nav. Replaced with targeted stacking on the content wrappers only.
+- `overflow-x: hidden` on the root made it a scroll container, which broke `position: sticky` for both the landing nav and the dashboard header, and hid layout overflow instead of surfacing it — it was what masked the grid defect above. Removed; the 21 layout assertions now pass with no clipping net in place, so the absence of horizontal overflow is measured rather than concealed.
+- jsdom has no canvas or `matchMedia`, so the landing backdrop emitted a jsdom error on stderr, which `scripts/test-web.ps1` treats as fatal. Shimmed in `src/test-setup.ts`.
+- `apps/web/vite.config.js` and `vite.config.d.ts` were tracked, stale compiled copies of the previous `vite.config.ts` (`base: "./"`, single entry) that nothing referenced and `tsc -b` cannot regenerate, since `tsconfig.node.json` sets `noEmit`. Vite resolves `vite.config.js` ahead of `vite.config.ts`, so a bare `vite build` silently produced a single-page relative-base artifact with no `dashboard/index.html`, which would 404 on Pages. Verified by reproducing it, then removed; a bare `vite build` now emits both entries at the `/BatteryAI/` base. The repository scripts and workflow were never affected because they pass `--config vite.config.ts` explicitly.
+
+### Verification
+
+- Frontend: 78 tests in 13 files pass; `npm run typecheck` clean.
+- Python: 57 tests pass, unchanged and untouched.
+- `scripts\test-all.ps1` prints `BATTERYAI_TEST_ALL=PASSED`.
+- Default Pages build and remote build with `BATTERYAI_REMOTE_API_URL=https://laptop-lr3kmrfv.taild8c2e6.ts.net` both emit `dist/index.html` and `dist/dashboard/index.html` and pass the artifact scan. The configured Funnel URL appears only in the dashboard chunk, never in the landing chunk.
+- Static routing proved against a strict static server with no SPA fallback: `/BatteryAI/` and `/BatteryAI/dashboard/` return 200 from real files while an unknown path returns 404, confirming no fallback is masking the result.
+- Local development verified end to end: landing → dashboard → refresh → back to landing, with no page errors.
+- Browser review at 1440×900 and 390×844 over 20 screenshots and 21 layout assertions: no horizontal overflow and no clipped content in any state, including long errors and long LLM suggestions. The assertions measure element rectangles against the viewport and ignore content that scrolls inside its own container, and they run with no root `overflow-x: hidden`, so nothing is concealed. Reduced motion disables the reveal animation and never mounts the pointer halo, which is also absent on coarse pointers. Both sticky headers verified to hold at scroll offset, and the skip link verified reachable and on-screen on first Tab on both pages.
+- Landing sections use scroll reveal, so all 20 revealed blocks were confirmed to reach full opacity on scroll and via every nav anchor. Content is always in the DOM and is shown immediately when `IntersectionObserver` is unavailable or reduced motion is requested, so it can never be permanently hidden.
+- Local engine unaffected: `/health` reports running and `/v1/capabilities` returns 401 unauthenticated.
+
+### Remaining blocker
+
+The public Funnel leg of `scripts\check-remote.ps1` could not be exercised. Tailscale reports `BackendState: Running` with `DNSName: laptop-lr3kmrfv.taild8c2e6.ts.net`, matching the configured `BATTERYAI_REMOTE_API_URL` exactly, but `tailscale funnel status` reports `No serve config`, so no Funnel is currently active and `https://laptop-lr3kmrfv.taild8c2e6.ts.net/health` is unreachable. No Funnel configuration was started or altered. Re-run **BatteryAI: Start Remote** and then `scripts\check-remote.ps1` to complete that check. This is a deployment-state gap, not a frontend defect: the remote build, the ts.net URL lock and the pre-pairing request restrictions are all verified.
+
+Separately, the `origin` remote is `https://github.com/adityapawar0401/deployment.git`, which does not match the documented `BatteryAI` repository. The base path defaults to `/BatteryAI/` as specified and is overridable with `BATTERYAI_PAGES_BASE`. No remote was changed. The footer omits a GitHub repository link because project metadata does not agree on the correct URL.
+
 ## Incomplete-suggestions defect correction — 2026-06-30
 
 ### Root cause

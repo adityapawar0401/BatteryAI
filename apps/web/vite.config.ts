@@ -1,7 +1,9 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
-export default defineConfig(() => {
+const defaultPagesBase = "/BatteryAI/";
+
+export default defineConfig(({ command }) => {
   const environment = process.env;
   const remoteEnabled = ["1", "true"].includes((environment.VITE_BATTERYAI_REMOTE_MODE ?? "").toLowerCase());
   if (remoteEnabled) {
@@ -13,10 +15,13 @@ export default defineConfig(() => {
     } catch { valid = false; }
     if (!valid) throw new Error("Remote production build requires an exact HTTPS ts.net VITE_BATTERYAI_REMOTE_API_URL.");
   }
+  const configuredBase = (environment.BATTERYAI_PAGES_BASE ?? "").trim();
+  const base = command === "serve" ? "/" : configuredBase || defaultPagesBase;
+  if (!base.startsWith("/") || !base.endsWith("/")) throw new Error('BATTERYAI_PAGES_BASE must start and end with "/" so repository-subpath hosting resolves.');
   return {
     plugins: [react()],
-    base: "./",
-    build: { outDir: "dist", sourcemap: true },
+    base,
+    build: { outDir: "dist", sourcemap: true, rollupOptions: { input: { main: "index.html", dashboard: "dashboard/index.html" } } },
     test: { environment: "jsdom", setupFiles: "./src/test-setup.ts" },
   };
 });

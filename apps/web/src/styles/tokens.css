@@ -1,0 +1,182 @@
+:root {
+  --color-obsidian: #08080a;
+  --color-panel: #131317;
+  --color-panel-elevated: #1c1c21;
+  --color-panel-sunken: #050506;
+  --color-volt: #ccff00;
+  --color-volt-soft: rgba(204, 255, 0, 0.12);
+  --color-copper: #b85c38;
+  --color-copper-text: #e9976a;
+  --color-copper-soft: rgba(184, 92, 56, 0.14);
+  --color-text: #e8e8ec;
+  --color-muted: #a1a1aa;
+  --color-faint: #71717a;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
+
+  --radius-small: 3px;
+  --radius-medium: 6px;
+  --shadow-panel: 0 18px 40px rgba(0, 0, 0, 0.45);
+
+  --font-body: Inter, "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --space-page: clamp(1rem, 4vw, 2.5rem);
+  --width-page: 1400px;
+
+  color-scheme: dark;
+  font-family: var(--font-body);
+  color: var(--color-text);
+  background-color: var(--color-obsidian);
+  font-synthesis: none;
+  -webkit-text-size-adjust: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * No `overflow-x: hidden` here on purpose. It makes the root a scroll container,
+ * which silently breaks `position: sticky` for the nav and header, and it hides
+ * layout overflow rather than fixing it. Wide content scrolls inside its own
+ * container instead (see .table-wrap).
+ */
+body {
+  margin: 0;
+  background-color: var(--color-obsidian);
+  color: var(--color-muted);
+  line-height: 1.6;
+}
+
+body.scroll-locked {
+  overflow: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--color-text);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+a {
+  color: var(--color-volt);
+}
+
+img,
+svg,
+canvas {
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-volt);
+  outline-offset: 2px;
+  border-radius: var(--radius-small);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Shared control primitives -------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.7rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  background: var(--color-volt);
+  color: #08080a;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--secondary {
+  background: transparent;
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: #ffffff;
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-muted);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text);
+}
+
+.eyebrow {
+  margin: 0 0 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-volt);
+}
+
+.eyebrow--copper {
+  color: var(--color-copper-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

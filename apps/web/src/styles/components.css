@@ -1,0 +1,125 @@
+/* Components shared by the landing page and the dashboard. */
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--color-volt);
+  color: #08080a;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+.matrix {
+  margin: 0;
+}
+
+.matrix__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.matrix dt {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+.matrix dd {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.matrix__value--available {
+  color: var(--color-volt);
+}
+
+.matrix__value--unavailable {
+  color: var(--color-copper-text);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  padding: 0.35rem 0.6rem;
+  background: var(--color-volt-soft);
+  border: 1px solid rgba(204, 255, 0, 0.3);
+  border-radius: var(--radius-small);
+  font-size: 0.72rem;
+  color: var(--color-volt);
+}
+
+.fact-list,
+.limitations__list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.fact-list li,
+.limitations__list li {
+  position: relative;
+  padding-left: 1.2rem;
+}
+
+.fact-list li::before,
+.limitations__list li::before {
+  content: "";
+  position: absolute;
+  top: 0.6em;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  background: var(--color-volt);
+  transform: rotate(45deg);
+}
+
+.limitations__list li::before {
+  background: var(--color-copper);
+}
+
+.limitations {
+  display: grid;
+  gap: 2rem;
+}
+
+@media (min-width: 720px) {
+  .limitations {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.limitations__title {
+  margin: 0 0 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-copper-text);
+}

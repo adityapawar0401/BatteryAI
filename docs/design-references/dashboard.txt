@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BatteryAI — Command Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --obsidian: #08080A;
+            --titanium: #1C1C21;
+            --copper: #B85C38;
+            --volt: #CCFF00;
+            --border: rgba(255,255,255,0.05);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--obsidian);
+            color: #A1A1AA;
+            overflow-x: hidden;
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Sidebar logic */
+        .sidebar { transition: transform 0.3s cubic-bezier(0.19, 1, 0.22, 1); }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); position: fixed; z-index: 50; height: 100vh; }
+            .sidebar.active { transform: translateX(0); }
+        }
+
+        /* Chart Animation */
+        .chart-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawChart 2s ease-out forwards;
+        }
+        @keyframes drawChart { to { stroke-dashoffset: 0; } }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--obsidian); }
+        ::-webkit-scrollbar-thumb { background: var(--titanium); }
+    </style>
+</head>
+<body>
+
+    <div class="flex min-h-screen">
+        
+        <!-- Sidebar -->
+        <aside class="sidebar w-64 bg-[#050505] border-r border-white/5 flex flex-col flex-shrink-0">
+            <div class="p-6 border-b border-white/5">
+                <a href="/" class="mono font-extrabold text-white tracking-widest flex items-center gap-2">
+                    <span class="w-3 h-3 bg-[var(--volt)] rounded-sm rotate-45"></span>
+                    BATTERY/AI
+                </a>
+            </div>
+            
+            <nav class="flex-1 p-4 space-y-2 mono text-xs uppercase tracking-widest">
+                <a href="#" class="flex items-center gap-3 p-3 rounded-sm text-[var(--volt)] bg-[var(--volt)]/5 border-l-2 border-[var(--volt)]">
+                    <span>◈</span> Overview
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-sm text-zinc-500 hover:text-white hover:bg-white/5 transition">
+                    <span>▣</span> Cell Arrays
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-sm text-zinc-500 hover:text-white hover:bg-white/5 transition">
+                    <span>⟁</span> AI Models
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-sm text-zinc-500 hover:text-white hover:bg-white/5 transition">
+                    <span>∿</span> Telemetry
+                </a>
+                <a href="#" class="flex items-center gap-3 p-3 rounded-sm text-zinc-500 hover:text-white hover:bg-white/5 transition">
+                    <span>⚙</span> Configuration
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/5">
+                <div class="bg-[var(--titanium)] p-4 rounded-sm">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="mono text-xs text-zinc-500">SYSTEM HEALTH</span>
+                        <span class="mono text-xs text-[var(--volt)]">98.4%</span>
+                    </div>
+                    <div class="w-full h-1 bg-black rounded-full">
+                        <div class="h-full bg-[var(--volt)] rounded-full" style="width: 98.4%"></div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col min-w-0">
+            
+            <!-- Topbar -->
+            <header class="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#08080A] sticky top-0 z-30">
+                <button id="menu-btn" class="md:hidden text-white text-xl">≡</button>
+                <div class="hidden md:flex items-center gap-4">
+                    <h1 class="mono text-sm text-zinc-500 uppercase tracking-widest">Command Center</h1>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="hidden md:flex items-center gap-2 bg-[var(--titanium)] px-3 py-1.5 rounded-sm mono text-xs text-zinc-400">
+                        <span class="w-2 h-2 bg-[var(--volt)] rounded-full animate-pulse"></span>
+                        LIVE DATA STREAM
+                    </div>
+                    <div class="w-8 h-8 bg-[var(--copper)] rounded-full flex items-center justify-center text-black font-bold text-xs">AP</div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <div class="p-6 md:p-8 space-y-8">
+                
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-[var(--titanium)] p-6 rounded-sm border border-white/5 relative overflow-hidden group hover:border-[var(--volt)]/30 transition">
+                        <div class="mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Total Capacity</div>
+                        <div class="mono text-4xl font-extrabold text-white">84.2 <span class="text-lg text-zinc-500">kWh</span></div>
+                        <div class="mono text-xs text-[var(--volt)] mt-2">▲ 2.1% from last cycle</div>
+                    </div>
+                    <div class="bg-[var(--titanium)] p-6 rounded-sm border border-white/5 relative overflow-hidden group hover:border-[var(--volt)]/30 transition">
+                        <div class="mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Cycle Life</div>
+                        <div class="mono text-4xl font-extrabold text-white">1,204</div>
+                        <div class="mono text-xs text-zinc-500 mt-2">Est. remaining: 8,796</div>
+                    </div>
+                    <div class="bg-[var(--titanium)] p-6 rounded-sm border border-white/5 relative overflow-hidden group hover:border-[var(--copper)]/30 transition">
+                        <div class="mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Avg Temperature</div>
+                        <div class="mono text-4xl font-extrabold text-white">32.4 <span class="text-lg text-zinc-500">°C</span></div>
+                        <div class="mono text-xs text-[var(--copper)] mt-2">⚠ Slight elevation</div>
+                    </div>
+                    <div class="bg-[var(--titanium)] p-6 rounded-sm border border-white/5 relative overflow-hidden group hover:border-[var(--volt)]/30 transition">
+                        <div class="mono text-xs text-zinc-500 uppercase tracking-widest mb-2">AI Health Score</div>
+                        <div class="mono text-4xl font-extrabold text-white">A+</div>
+                        <div class="mono text-xs text-zinc-500 mt-2">Prediction accuracy: 99.8%</div>
+                    </div>
+                </div>
+
+                <!-- Main Chart Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-[var(--titanium)] p-6 rounded-sm border border-white/5">
+                        <div class="flex justify-between items-center mb-8">
+                            <div>
+                                <h2 class="text-xl text-white font-semibold">Discharge Cycle Analysis</h2>
+                                <p class="mono text-xs text-zinc-500 mt-1">Last 24 hours // Real-time stream</p>
+                            </div>
+                            <div class="hidden md:flex gap-2 mono text-xs">
+                                <button class="px-3 py-1 bg-black rounded-sm text-zinc-400">24H</button>
+                                <button class="px-3 py-1 bg-[var(--volt)] text-black rounded-sm font-bold">7D</button>
+                                <button class="px-3 py-1 bg-black rounded-sm text-zinc-400">30D</button>
+                            </div>
+                        </div>
+                        
+                        <!-- SVG Chart -->
+                        <div class="relative h-64 w-full">
+                            <svg class="w-full h-full" viewBox="0 0 800 300" preserveAspectRatio="none">
+                                <!-- Grid lines -->
+                                <line x1="0" y1="75" x2="800" y2="75" stroke="rgba(255,255,255,0.05)" />
+                                <line x1="0" y1="150" x2="800" y2="150" stroke="rgba(255,255,255,0.05)" />
+                                <line x1="0" y1="225" x2="800" y2="225" stroke="rgba(255,255,255,0.05)" />
+                                
+                                <!-- Area fill -->
+                                <path d="M0,250 L50,200 L100,220 L150,150 L200,180 L250,100 L300,140 L350,80 L400,120 L450,60 L500,90 L550,50 L600,110 L650,70 L700,140 L750,100 L800,160 L800,300 L0,300 Z" fill="url(#grad)" opacity="0.3" />
+                                <defs>
+                                    <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                                        <stop offset="0%" style="stop-color:rgb(204, 255, 0);stop-opacity:1" />
+                                        <stop offset="100%" style="stop-color:rgb(204, 255, 0);stop-opacity:0" />
+                                    </linearGradient>
+                                </defs>
+                                
+                                <!-- Chart Line -->
+                                <path class="chart-path" d="M0,250 L50,200 L100,220 L150,150 L200,180 L250,100 L300,140 L350,80 L400,120 L450,60 L500,90 L550,50 L600,110 L650,70 L700,140 L750,100 L800,160" fill="none" stroke="#CCFF00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <div class="absolute top-0 left-0 mono text-xs text-zinc-600">100%</div>
+                            <div class="absolute top-1/3 left-0 mono text-xs text-zinc-600">66%</div>
+                            <div class="absolute top-2/3 left-0 mono text-xs text-zinc-600">33%</div>
+                            <div class="absolute bottom-0 left-0 mono text-xs text-zinc-600">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- AI Predictions Panel -->
+                    <div class="bg-[var(--titanium)] p-6 rounded-sm border border-white/5 flex flex-col">
+                        <h2 class="text-xl text-white font-semibold mb-1">AI Diagnostics</h2>
+                        <p class="mono text-xs text-zinc-500 mb-6">Model: Transformer-V4.2</p>
+                        
+                        <div class="space-y-4 flex-1">
+                            <div class="bg-black/40 p-4 rounded-sm border-l-2 border-[var(--volt)]">
+                                <div class="mono text-xs text-[var(--volt)] uppercase tracking-widest mb-2">Optimization Recommended</div>
+                                <p class="text-sm text-zinc-300">Cell 4B experiencing minor thermal imbalance. Adjusting cooling vector by +2.4%.</p>
+                            </div>
+                            <div class="bg-black/40 p-4 rounded-sm border-l-2 border-zinc-700">
+                                <div class="mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Status Normal</div>
+                                <p class="text-sm text-zinc-400">No degradation anomalies detected in Pack A. Capacity retention stable.</p>
+                            </div>
+                            <div class="bg-black/40 p-4 rounded-sm border-l-2 border-zinc-700">
+                                <div class="mono text-xs text-zinc-500 uppercase tracking-widest mb-2">Future Prediction</div>
+                                <p class="text-sm text-zinc-400">Next maintenance cycle estimated in 4,200 hours.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Battery Pack Visualization -->
+                <div class="bg-[var(--titanium)] p-6 rounded-sm border border-white/5">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h2 class="text-xl text-white font-semibold">Physical Cell Array Monitor</h2>
+                            <p class="mono text-xs text-zinc-500 mt-1">Hover to inspect individual cells</p>
+                        </div>
+                        <div class="mono text-xs flex items-center gap-4">
+                            <span class="flex items-center gap-2 text-zinc-400"><span class="w-2 h-2 bg-[var(--volt)] rounded-full"></span> Optimal</span>
+                            <span class="flex items-center gap-2 text-zinc-400"><span class="w-2 h-2 bg-[var(--copper)] rounded-full"></span> Warning</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-2">
+                        <!-- Generating 48 cells via JS for brevity in HTML, but here's a few examples -->
+                        <!-- We will use a script block below to auto-generate the rest -->
+                    </div>
+                    <div id="cell-grid" class="grid grid-cols-8 md:grid-cols-12 gap-2"></div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Mobile Menu Toggle
+        const menuBtn = document.getElementById('menu-btn');
+        const sidebar = document.querySelector('.sidebar');
+        menuBtn.addEventListener('click', () => sidebar.classList.toggle('active'));
+
+        // Generate Battery Cells
+        const grid = document.getElementById('cell-grid');
+        for (let i = 0; i < 48; i++) {
+            const cell = document.createElement('div');
+            // Make 5 cells "warning" status randomly
+            const isWarning = Math.random() > 0.85; 
+            const statusColor = isWarning ? 'var(--copper)' : 'var(--volt)';
+            const statusBg = isWarning ? 'rgba(184, 92, 56, 0.1)' : 'rgba(204, 255, 0, 0.05)';
+            
+            cell.className = 'aspect-square rounded-sm border border-white/10 flex items-center justify-center mono text-xs text-zinc-600 cursor-pointer transition-all hover:scale-95';
+            cell.style.backgroundColor = statusBg;
+            cell.innerHTML = `
+                <div class="w-full h-full p-1 flex flex-col justify-between">
+                    <div class="w-1 h-1 rounded-full" style="background:${statusColor}; margin-left:auto; box-shadow: 0 0 5px ${statusColor};"></div>
+                    <div class="text-[8px] text-center text-zinc-500">${(i+1).toString(16).toUpperCase()}</div>
+                </div>
+            `;
+            grid.appendChild(cell);
+        }
+    </script>
+</body>
+</html>

@@ -24,18 +24,34 @@ jobs:
         working-directory: apps/web
       - run: npm test
         working-directory: apps/web
+      - name: Require the configured remote backend URL
+        shell: bash
+        env:
+          REMOTE_API_URL: ${{ vars.BATTERYAI_REMOTE_API_URL }}
+        run: |
+          if [ -z "$REMOTE_API_URL" ]; then
+            echo "::error::The BATTERYAI_REMOTE_API_URL repository variable is not set."
+            exit 1
+          fi
+          if ! printf '%s' "$REMOTE_API_URL" | grep -qE '^https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.ts\.net$'; then
+            echo "::error::BATTERYAI_REMOTE_API_URL must be an exact HTTPS ts.net origin with no port, path, query, or fragment."
+            exit 1
+          fi
       - run: npm run build
         working-directory: apps/web
         env:
           VITE_BATTERYAI_REMOTE_MODE: "1"
           VITE_BATTERYAI_REMOTE_API_URL: ${{ vars.BATTERYAI_REMOTE_API_URL }}
+          BATTERYAI_PAGES_BASE: ${{ vars.BATTERYAI_PAGES_BASE || '/BatteryAI/' }}
       - name: Verify static artifact
         shell: bash
         run: |
           test -f apps/web/dist/index.html
-          ! find apps/web/dist -type f \( -name 'model.pt' -o -name '*.mat' -o -name '*.onnx' -o -name '*.onnx.data' \) | grep .
+          test -f apps/web/dist/dashboard/index.html
+          ! find apps/web/dist -type f \( -name 'model.pt' -o -name '*.mat' -o -name '*.onnx' -o -name '*.onnx.data' -o -name 'landingpage.txt' -o -name 'dashboard.txt' \) | grep .
           ! find apps/web/dist -type f | grep -E '(_inputs|batteryai-gpu-env|local-reports)'
           ! grep -R -E 'C:\\Users\\|Pairing token:|Oxford_Battery_Degradation_Dataset_1\.mat' apps/web/dist
+          ! grep -R -i -E 'cdn\.tailwindcss\.com|Transformer-V4|LIVE DATA STREAM|SYSTEMS NOMINAL|Adaptive Charging|Request deployment|99\.8 ?%? ?accuracy|Prediction accuracy' apps/web/dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

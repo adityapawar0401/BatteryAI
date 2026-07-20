@@ -51,15 +51,15 @@ export function DataInputSection(props: DataInputSectionProps) {
   const seriesFor = (key: "voltage_V" | "capacity_Ah" | "temperature_K"): SeriesPoint[] =>
     plotted.map((row) => ({ x: row.point_index, y: row[key] }));
 
-  return <section className="dash-section" id="data-input" aria-labelledby="data-input-heading">
+  return <section className="dash-section" id="data" aria-labelledby="data-heading">
     <div className="dash-section__head">
       <div>
-        <p className="eyebrow">Data input</p>
-        <h2 id="data-input-heading">Oxford curve data</h2>
+        <p className="eyebrow">Data</p>
+        <h2 id="data-heading">Battery data</h2>
       </div>
       <div className="dash-actions">
         <a className="btn btn--secondary" href={assetPath("fixtures/oxford-template.csv")} download>Download template</a>
-        <button type="button" className="btn btn--secondary" onClick={props.onLoadExample}>Load supplied example</button>
+        <button type="button" className="btn btn--secondary" onClick={props.onLoadExample}>Load example</button>
       </div>
     </div>
 
@@ -67,13 +67,13 @@ export function DataInputSection(props: DataInputSectionProps) {
       {(["upload", "paste", "table"] as Tab[]).map((item) => <button
         type="button" role="tab" key={item} id={`tab-${item}`} aria-selected={tab === item} aria-controls={`panel-${item}`}
         className={`tabs__tab mono${tab === item ? " tabs__tab--active" : ""}`} onClick={() => onTabChange(item)}
-      >{item === "upload" ? "Upload CSV" : item === "paste" ? "Paste CSV" : "Edit table"}</button>)}
+      >{item === "upload" ? "Upload data" : item === "paste" ? "Paste CSV" : "Review data"}</button>)}
     </div>
 
     {tab === "upload" && <div role="tabpanel" id="panel-upload" aria-labelledby="tab-upload">
       <label className="dropzone">
-        <span className="dropzone__title">Choose a CSV file</span>
-        <span className="dropzone__hint mono">Maximum 5 MB · canonical Oxford columns</span>
+        <span className="dropzone__title">Upload battery data</span>
+        <span className="dropzone__hint mono">CSV up to 5 MB</span>
         <input type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); }} />
       </label>
     </div>}
@@ -89,7 +89,7 @@ export function DataInputSection(props: DataInputSectionProps) {
 
     {tab === "table" && <div role="tabpanel" id="panel-table" aria-labelledby="tab-table">
       {rows.length === 0
-        ? <p className="dash-empty">No rows yet. Load the supplied example, paste CSV, or add a row to start editing.</p>
+        ? <p className="dash-empty">No data yet. Load the example, paste CSV, or add a row to start editing.</p>
         : <div className="table-wrap">
           <table>
             <thead><tr>{columns.map((column) => <th key={column} scope="col">
@@ -107,14 +107,14 @@ export function DataInputSection(props: DataInputSectionProps) {
     </div>}
 
     <div className="dash-actions dash-actions--wrap">
-      <button type="button" className="btn btn--secondary" onClick={props.onAddRow}>Add table row</button>
-      <button type="button" className="btn" onClick={props.onValidate}>Validate</button>
-      <button type="button" className="btn btn--ghost" onClick={props.onClear}>Clear</button>
+      <button type="button" className="btn btn--secondary" onClick={props.onAddRow}>Add row</button>
+      <button type="button" className="btn" onClick={props.onValidate}>Validate data</button>
+      <button type="button" className="btn btn--ghost" onClick={props.onClear}>Clear data</button>
     </div>
     <p className="dash-notice" role="status">{notice}</p>
 
     <details className="dash-details">
-      <summary>Canonical field contract</summary>
+      <summary>BatteryAI CSV format</summary>
       <dl className="field-help">
         {columns.map((column) => <div className="field-help__row" key={column}>
           <dt className="mono">{column}{column !== "actual_soh" ? <span className="field-help__req"> required</span> : <span className="field-help__opt"> optional</span>}</dt>
@@ -123,7 +123,7 @@ export function DataInputSection(props: DataInputSectionProps) {
       </dl>
     </details>
 
-    <div className="dash-subhead"><h3 className="mono">Supplied curve series</h3>
+    <div className="dash-subhead"><h3 className="mono">Charge-cycle data</h3>
       {sequences.length > 1 && <div className="field field--inline">
         <label className="field__label" htmlFor="chart-sequence">Sequence</label>
         <select id="chart-sequence" value={activeSequence} onChange={(event) => setChartSequence(event.target.value)}>
@@ -132,7 +132,7 @@ export function DataInputSection(props: DataInputSectionProps) {
       </div>}
     </div>
     {plotted.length < 2
-      ? <p className="dash-empty">Charts appear once curve rows are supplied. They are drawn only from the rows above.</p>
+      ? <p className="dash-empty">Charts appear once battery data is added. They are drawn only from the data above.</p>
       : <div className="chart-grid">
         {chartSeries.map((series) => <DataSeriesChart key={series.key} title={series.title} unit={series.unit} xLabel="point index" accent={series.accent} points={seriesFor(series.key)} />)}
       </div>}

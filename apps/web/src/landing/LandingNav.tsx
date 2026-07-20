@@ -3,10 +3,9 @@ import { dashboardPath, landingPath } from "../routes";
 import { useOverlayDismiss } from "../ui/useOverlayDismiss";
 
 export const landingSections = [
-  { id: "capabilities", label: "What it does" },
-  { id: "architecture", label: "Architecture" },
-  { id: "model", label: "Model" },
-  { id: "limitations", label: "Limitations" },
+  { id: "product", label: "Product" },
+  { id: "how-it-works", label: "How it works" },
+  { id: "benefits", label: "Benefits" },
 ];
 
 export function LandingNav() {

@@ -52,6 +52,9 @@ jobs:
           ! find apps/web/dist -type f | grep -E '(_inputs|batteryai-gpu-env|local-reports)'
           ! grep -R -E 'C:\\Users\\|Pairing token:|Oxford_Battery_Degradation_Dataset_1\.mat' apps/web/dist
           ! grep -R -i -E 'cdn\.tailwindcss\.com|Transformer-V4|LIVE DATA STREAM|SYSTEMS NOMINAL|Adaptive Charging|Request deployment|99\.8 ?%? ?accuracy|Prediction accuracy' apps/web/dist
+          # Rendered markup must carry no internal implementation vocabulary.
+          # Bundled JS keeps API contract strings, which the app requires to work.
+          ! grep -R -i -E 'Oxford|PIMoE|Ollama|llama3\.2|ONNX|FastAPI|Tailscale|Funnel|GitHub Pages|CUDA|SHA-256|active experts|masked experts|model profile|RUL |next-observed-checkpoint|loopback|host computer' --include='*.html' apps/web/dist
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

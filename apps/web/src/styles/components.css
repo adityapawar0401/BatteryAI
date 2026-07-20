@@ -71,8 +71,7 @@
   color: var(--color-volt);
 }
 
-.fact-list,
-.limitations__list {
+.fact-list {
   display: grid;
   gap: 0.6rem;
   margin: 0;
@@ -82,14 +81,12 @@
   color: var(--color-muted);
 }
 
-.fact-list li,
-.limitations__list li {
+.fact-list li {
   position: relative;
   padding-left: 1.2rem;
 }
 
-.fact-list li::before,
-.limitations__list li::before {
+.fact-list li::before {
   content: "";
   position: absolute;
   top: 0.6em;
@@ -100,26 +97,10 @@
   transform: rotate(45deg);
 }
 
-.limitations__list li::before {
-  background: var(--color-copper);
-}
-
-.limitations {
-  display: grid;
-  gap: 2rem;
-}
 
 @media (min-width: 720px) {
-  .limitations {
+  .fact-list--columns {
     grid-template-columns: 1fr 1fr;
+    column-gap: 2rem;
   }
-}
-
-.limitations__title {
-  margin: 0 0 0.85rem;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-copper-text);
 }

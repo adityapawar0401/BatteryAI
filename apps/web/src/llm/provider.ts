@@ -55,7 +55,9 @@ export function buildSuggestionSummary(result: PredictionResult): SuggestionSumm
     absolute_error: result.absolute_error,
     input_quality: result.warnings.slice(0, 10),
     active_experts: result.active_experts.slice(0, 10),
-    limitations: ["next-observed-checkpoint horizon varies", "RUL unavailable", "not a safety certification"],
+    // Contract shape unchanged; the wording is customer-safe because the service
+    // includes these notes in the generated report.
+    limitations: ["the estimate carries uncertainty", "not a safety certification"],
     backend: result.backend,
     runtime_device: result.runtime_device,
   };

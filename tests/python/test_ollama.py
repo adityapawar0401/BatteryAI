@@ -290,3 +290,51 @@ def test_health_and_startup_remain_available_without_ollama(monkeypatch):
     banner = app_module.startup_banner("127.0.0.1", 8000)
     assert "Numerical device: cuda" in banner
     assert "Ollama ready: False" in banner
+
+
+def test_prompt_excludes_internal_identifiers_but_keeps_analysis_values():
+    """The request contract still carries internal fields; the prompt must not."""
+    captured = {}
+
+    def handler(request):
+        if request.url.path == "/api/version": return httpx.Response(200, json={"version": "0.30.11"})
+        if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": json.dumps(
+            {"summary": "Analysis complete", "actions": ["Review the estimate"], "cautions": ["Consider uncertainty"]}
+        )}})
+
+    source = summary(
+        model_profile="oxford-v1",
+        limitations=["next-observed-checkpoint horizon varies", "RUL unavailable"],
+        active_experts=["core_operational", "diagnostic_curve"],
+        runtime_device="cuda:0",
+    )
+    before = source.model_dump()
+    run(client_for(handler).generate(source))
+
+    prompt = json.dumps(captured)
+    for term in ["oxford", "pimoe", "RUL", "next-observed-checkpoint", "core_operational", "cuda", "local-pytorch", "a" * 64, "model_profile", "active_experts", "runtime_device"]:
+        assert term.lower() not in prompt.lower(), term
+
+    # The values the insight actually needs are still present.
+    user_message = captured["messages"][1]["content"]
+    assert "BEGIN BATTERYAI_PREDICTION_DATA" in user_message
+    assert str(source.predicted_soh) in user_message
+    assert str(source.predictive_std) in user_message
+    assert str(source.actual_soh) in user_message
+
+    # The accepted request object is unchanged, so the HTTP contract still holds.
+    assert source.model_dump() == before
+    assert source.model_profile == "oxford-v1" and source.runtime_device == "cuda:0"
+
+
+def test_system_prompt_forbids_naming_internal_components():
+    from services.local_inference.batteryai_runtime.ollama import SYSTEM_PROMPT
+
+    lowered = SYSTEM_PROMPT.lower()
+    for required in ["never name or describe any model", "dataset", "checkpoint", "deployment"]:
+        assert required in lowered, required
+    # The instruction itself must not seed internal vocabulary into generations.
+    for forbidden in ["oxford", "pimoe", "ollama", "llama", "rul", "cuda", "onnx"]:
+        assert forbidden not in lowered, forbidden

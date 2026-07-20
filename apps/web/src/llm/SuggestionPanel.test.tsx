@@ -21,52 +21,67 @@ class FakeProvider implements SuggestionProvider {
   generate = vi.fn(async () => completed);
 }
 
-describe("Local Ollama suggestion interaction", () => {
-  it("enables generation only for paired service, ready Ollama, and a completed prediction", async () => {
+describe("AI insights interaction", () => {
+  it("enables generation only for a connected service, ready insights, and a completed analysis", async () => {
     const provider = new FakeProvider();
     render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
-    expect(await screen.findByRole("button", { name: "Generate suggestions" })).toBeEnabled();
-    expect(screen.getByText(/Provider:/)).toHaveTextContent("Local Ollama");
-    expect(screen.getByText(/Model:/)).toHaveTextContent(OLLAMA_MODEL);
-    expect(screen.queryByRole("button", { name: /Load browser LLM/i })).not.toBeInTheDocument();
-    expect(screen.queryByText(/WebGPU/)).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Generate insights" })).toBeEnabled();
+    expect(provider.capability).toHaveBeenCalled();
   });
 
-  it("shows unavailable and missing-model reasons without enabling generation", async () => {
+  it("names no provider, model, or internal component anywhere in the panel", async () => {
+    const provider = new FakeProvider();
+    const { container } = render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
+    await screen.findByRole("button", { name: "Generate insights" });
+    const text = (container.textContent ?? "").toLowerCase();
+    for (const term of ["ollama", "llama3.2", "provider", "local llm", "loopback", "checkpoint", "oxford", "pimoe"]) {
+      expect(text).not.toContain(term);
+    }
+  });
+
+  it("reports an unavailable service without exposing the corrective command", async () => {
     const provider = new FakeProvider();
     provider.capability.mockResolvedValue({ ...ready, model_installed: false, ready: false, generation_available: false, reason: "Configured model is not installed.", corrective_command: OLLAMA_PULL_COMMAND });
     render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
-    expect(await screen.findByText(OLLAMA_PULL_COMMAND)).toBeInTheDocument();
-    expect(screen.getByText(/Local LLM: unavailable/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Generate suggestions" })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Insights: Unavailable/)).toBeInTheDocument();
+    expect(screen.queryByText(OLLAMA_PULL_COMMAND)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Generate insights" })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/AI insights are temporarily unavailable\./).length).toBeGreaterThan(0);
   });
 
-  it("uses the latest prediction, exposes generating/completed states, and preserves the number", async () => {
+  it("uses the latest analysis, exposes generating and completed states, and preserves the number", async () => {
     let resolveGeneration!: (value: LocalSuggestionResponse) => void;
     const provider = new FakeProvider();
     provider.generate = vi.fn(() => new Promise<LocalSuggestionResponse>((resolve) => { resolveGeneration = resolve; }));
     const view = render(<><output aria-label="numerical prediction">97.00</output><SuggestionPanel paired latestResult={prediction(97)} provider={provider} /></>);
-    await screen.findByRole("button", { name: "Generate suggestions" });
+    await screen.findByRole("button", { name: "Generate insights" });
     view.rerender(<><output aria-label="numerical prediction">88.00</output><SuggestionPanel paired latestResult={prediction(88)} provider={provider} /></>);
-    fireEvent.click(screen.getByRole("button", { name: "Generate suggestions" }));
-    expect(screen.getByText(/Local LLM: generating/)).toBeInTheDocument(); expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("88.00");
+    fireEvent.click(screen.getByRole("button", { name: "Generate insights" }));
+    expect(screen.getByText(/Insights: Generating/)).toBeInTheDocument();
+    expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("88.00");
     expect(provider.generate).toHaveBeenCalledWith(expect.objectContaining({ predicted_soh: 88 }), expect.any(AbortSignal));
     await act(async () => resolveGeneration(completed));
-    expect(await screen.findByText("Review complete")).toBeInTheDocument(); expect(screen.getByText(/Local LLM: completed/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Actions" })).toBeInTheDocument();
+    expect(await screen.findByText("Review complete")).toBeInTheDocument();
+    expect(screen.getByText(/Insights: Completed/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recommended actions" })).toBeInTheDocument();
     expect(screen.getByText("Inspect", { selector: "li" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cautions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Considerations" })).toBeInTheDocument();
     expect(screen.getByText("Decision support only", { selector: "li" })).toBeInTheDocument();
+    expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("88.00");
   });
 
-  it("shows generation errors and supports cancellation", async () => {
-    const provider = new FakeProvider(); provider.generate.mockRejectedValueOnce(new Error("Ollama out of memory"));
+  it("shows a customer-facing generation error and supports cancellation", async () => {
+    const provider = new FakeProvider();
+    provider.generate.mockRejectedValueOnce(new Error("Ollama out of memory"));
     render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
-    await screen.findByRole("button", { name: "Generate suggestions" }); fireEvent.click(screen.getByRole("button", { name: "Generate suggestions" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Ollama out of memory");
+    await screen.findByRole("button", { name: "Generate insights" });
+    fireEvent.click(screen.getByRole("button", { name: "Generate insights" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("AI insights are temporarily unavailable.");
+    expect(alert.textContent?.toLowerCase()).not.toContain("ollama");
 
     provider.generate = vi.fn((_result: PredictionResult, signal?: AbortSignal) => new Promise<LocalSuggestionResponse>((_resolve, reject) => signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))));
-    fireEvent.click(screen.getByRole("button", { name: "Generate suggestions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate insights" }));
     fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.getByText(/cancelled/)).toBeInTheDocument());
   });
@@ -77,23 +92,25 @@ describe("Local Ollama suggestion interaction", () => {
       .mockResolvedValueOnce({ ...completed, suggestions: { summary: "Incomplete", actions: [], cautions: ["Uncertain"] } })
       .mockResolvedValueOnce(completed);
     render(<><output aria-label="numerical prediction">97.00</output><SuggestionPanel paired latestResult={prediction(97)} provider={provider} /></>);
-    fireEvent.click(await screen.findByRole("button", { name: "Generate suggestions" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(/safe display schema/);
-    expect(screen.queryByRole("heading", { name: "Actions" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Cautions" })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("AI insights are temporarily unavailable.");
+    expect(screen.queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Considerations" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("97.00");
-    fireEvent.click(screen.getByRole("button", { name: "Generate suggestions" }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate insights" }));
     expect(await screen.findByText("Review complete")).toBeInTheDocument();
     expect(provider.generate).toHaveBeenCalledTimes(2);
     expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("97.00");
   });
 
-  it("shows the structured incomplete-suggestions error and keeps Generate usable", async () => {
+  it("keeps Generate usable after a structured incomplete-output failure", async () => {
     const provider = new FakeProvider();
     provider.generate.mockRejectedValue(new Error("The local LLM returned incomplete structured suggestions."));
     render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Generate suggestions" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("The local LLM returned incomplete structured suggestions.");
-    expect(screen.getByRole("button", { name: "Generate suggestions" })).toBeEnabled();
+    fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("AI insights are temporarily unavailable.");
+    expect(alert.textContent?.toLowerCase()).not.toContain("llm");
+    expect(screen.getByRole("button", { name: "Generate insights" })).toBeEnabled();
   });
 });

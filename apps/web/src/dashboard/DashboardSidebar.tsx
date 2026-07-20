@@ -3,11 +3,10 @@ import { useOverlayDismiss } from "../ui/useOverlayDismiss";
 
 export const dashboardSections = [
   { id: "overview", label: "Overview", glyph: "◈" },
-  { id: "data-input", label: "Data Input", glyph: "▣" },
+  { id: "data", label: "Data", glyph: "▣" },
   { id: "validation", label: "Validation", glyph: "⟁" },
-  { id: "prediction", label: "Prediction", glyph: "∿" },
-  { id: "suggestions", label: "Suggestions", glyph: "✦" },
-  { id: "system-status", label: "System Status", glyph: "⚙" },
+  { id: "results", label: "Results", glyph: "∿" },
+  { id: "insights", label: "Insights", glyph: "✦" },
 ];
 
 interface DashboardSidebarProps { open: boolean; onClose: () => void }

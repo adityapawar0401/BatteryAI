@@ -3,7 +3,9 @@
   "$id": "https://batteryai.local/contracts/oxford-v1-input.json",
   "title": "BatteryAI Oxford V1 curve rows",
   "type": "object",
-  "required": ["rows"],
+  "required": [
+    "rows"
+  ],
   "additionalProperties": false,
   "properties": {
     "rows": {
@@ -13,19 +15,89 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["sequence_id", "cell_id", "source_checkpoint", "target_checkpoint", "modality", "point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K"],
+        "required": [
+          "sequence_id",
+          "cell_id",
+          "source_checkpoint",
+          "target_checkpoint",
+          "modality",
+          "point_index",
+          "time_s",
+          "voltage_V",
+          "capacity_Ah",
+          "temperature_K"
+        ],
         "properties": {
-          "sequence_id": {"type": "string", "minLength": 1, "description": "Groups curve points into one forecast input."},
-          "cell_id": {"type": "string", "minLength": 1, "description": "Cell identifier."},
-          "source_checkpoint": {"type": "string", "minLength": 1, "description": "Observed checkpoint used as input."},
-          "target_checkpoint": {"type": "string", "minLength": 1, "description": "Next observed checkpoint being forecast."},
-          "modality": {"enum": ["C1ch", "C1dc", "OCVch", "OCVdc"], "description": "Oxford curve modality; C1ch is preferred when available."},
-          "point_index": {"type": "integer", "minimum": 0, "description": "Zero-based curve ordering within the sequence."},
-          "time_s": {"type": "number", "minimum": 0, "description": "Elapsed curve time.", "x-unit": "second"},
-          "voltage_V": {"type": "number", "minimum": 0, "maximum": 10, "description": "Measured cell voltage.", "x-unit": "volt"},
-          "capacity_Ah": {"type": "number", "minimum": -20, "maximum": 20, "description": "Capacity coordinate converted from Oxford mAh.", "x-unit": "ampere_hour"},
-          "temperature_K": {"type": "number", "minimum": 200, "maximum": 500, "description": "Cell temperature converted from Oxford Celsius.", "x-unit": "kelvin"},
-          "actual_soh": {"type": ["number", "null"], "minimum": 0, "maximum": 150, "description": "Optional next-checkpoint SOH in percentage points."}
+          "sequence_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Groups curve points into one analysis input."
+          },
+          "cell_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Cell identifier."
+          },
+          "source_checkpoint": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The measurement point used as input."
+          },
+          "target_checkpoint": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The later measurement point being estimated."
+          },
+          "modality": {
+            "enum": [
+              "C1ch",
+              "C1dc",
+              "OCVch",
+              "OCVdc"
+            ],
+            "description": "Charge-cycle curve type; C1ch is preferred when available."
+          },
+          "point_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Zero-based curve ordering within the sequence."
+          },
+          "time_s": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Elapsed curve time.",
+            "x-unit": "second"
+          },
+          "voltage_V": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10,
+            "description": "Measured cell voltage.",
+            "x-unit": "volt"
+          },
+          "capacity_Ah": {
+            "type": "number",
+            "minimum": -20,
+            "maximum": 20,
+            "description": "Capacity coordinate in ampere-hours.",
+            "x-unit": "ampere_hour"
+          },
+          "temperature_K": {
+            "type": "number",
+            "minimum": 200,
+            "maximum": 500,
+            "description": "Cell temperature in kelvin.",
+            "x-unit": "kelvin"
+          },
+          "actual_soh": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 150,
+            "description": "Optional reference state of health in percentage points."
+          }
         }
       }
     }

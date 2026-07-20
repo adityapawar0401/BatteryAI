@@ -1,51 +1,35 @@
 import { dashboardPath } from "../routes";
-import type { ModelProfile } from "../types";
-import { LimitationsPanel } from "../ui/LimitationsPanel";
 import { CursorHalo } from "./CursorHalo";
 import { LandingFooter } from "./LandingFooter";
 import { LandingNav } from "./LandingNav";
 import { NeuralBackdrop } from "./NeuralBackdrop";
 import { Reveal } from "./Reveal";
-import profileJson from "../../public/config/oxford-v1.json";
 import "../styles/tokens.css";
 import "../styles/components.css";
 import "../styles/landing.css";
 
-const profile = profileJson as unknown as ModelProfile;
-
-const capabilities = [
-  { index: "01", title: "Structured CSV input and validation", body: "Upload, paste, or edit Oxford-style charge-curve rows. Every row is checked against the canonical field contract before anything leaves the browser." },
-  { index: "02", title: "State-of-health prediction", body: "The finalized Battery-PIMoE checkpoint estimates state of health at the next observed checkpoint, reported in percent." },
-  { index: "03", title: "Predictive uncertainty", body: "Each prediction carries a predictive standard deviation in percentage points, so the estimate is never presented as a bare number." },
-  { index: "04", title: "Optional actual-SOH comparison", body: "Supply actual_soh in the input and the dashboard reports the absolute error next to the prediction. Without it, no error is invented." },
-  { index: "05", title: "Local AI-generated interpretation", body: "Optional plain-language reading of a completed prediction from llama3.2:3b on Ollama, running on the same host. It cannot change the numbers." },
-  { index: "06", title: "Self-hosted CUDA/CPU inference", body: "Numerical inference runs in your own PyTorch environment. It prefers the NVIDIA GPU and falls back to CPU when CUDA is unavailable." },
-  { index: "07", title: "Private pairing-token-protected service", body: "The inference service answers only requests carrying the pairing token it prints at startup. There is no account, sign-in, or registration." },
+const value = [
+  { index: "01", title: "Battery health analysis", body: "Estimate battery state of health from structured charge-cycle data." },
+  { index: "02", title: "Clear results", body: "Review the predicted health value, its uncertainty, and a comparison against a known reference when one is supplied." },
+  { index: "03", title: "Actionable insights", body: "Turn a completed analysis into concise recommended actions and considerations." },
+  { index: "04", title: "Structured workflow", body: "Upload, validate, analyze, and review results in one interface." },
 ];
 
-const architecture = [
-  { step: "01", title: "GitHub Pages static frontend", body: "This site and the dashboard are static files. They hold no checkpoint, no dataset, and no token." },
-  { step: "02", title: "Paired FastAPI service", body: "The dashboard sends validated rows to your BatteryAI service only after you explicitly pair with the endpoint and token." },
-  { step: "03", title: "Battery-PIMoE checkpoint on CUDA/CPU", body: "The service loads the SHA-256-verified checkpoint and runs the numerical model on the host computer's GPU or CPU." },
-  { step: "04", title: "Optional local Ollama llama3.2:3b", body: "When asked, the service sends a bounded prediction summary to Ollama over loopback and returns structured suggestions." },
+const steps = [
+  { step: "01", title: "Upload battery data", body: "Bring your own charge-cycle data as a CSV, paste it directly, or start from the example dataset." },
+  { step: "02", title: "Validate the dataset", body: "Every row is checked against the expected format before anything is analyzed." },
+  { step: "03", title: "Run the analysis", body: "Start the health analysis and follow its progress." },
+  { step: "04", title: "Review results and insights", body: "Read the estimated state of health with its uncertainty, then generate written insights." },
 ];
 
-const architectureFacts = [
-  "GitHub Pages does not run the numerical model.",
-  "The host computer performs all inference.",
-  "Ollama is contacted only by the FastAPI service, over loopback.",
-  "The browser never contacts Ollama directly.",
-  "Remote use requires the host computer to remain online.",
-];
-
-const capabilityMatrix: Array<{ label: string; value: string; state: "available" | "unavailable" }> = [
-  { label: "Model profile", value: profile.title, state: "available" },
-  { label: "SOH prediction", value: "Available", state: "available" },
-  { label: "Predictive uncertainty", value: "Available", state: "available" },
-  { label: "Remaining useful life", value: "Unavailable", state: "unavailable" },
-  { label: "Local CUDA inference", value: "Available", state: "available" },
-  { label: "Local CPU inference", value: "Available", state: "available" },
-  { label: "Browser ONNX", value: "Unavailable for Oxford V1", state: "unavailable" },
+const benefits = [
+  "Clear analysis workflow",
+  "Structured data validation",
+  "Fast result review",
+  "Prediction uncertainty on every estimate",
+  "Optional reference comparison",
+  "Actionable insight generation",
+  "Secure access-controlled analysis",
 ];
 
 export function LandingPage() {
@@ -59,35 +43,34 @@ export function LandingPage() {
       <header className="landing-hero">
         <div className="landing-hero__glow" aria-hidden="true" />
         <div className="landing-hero__inner">
-          <p className="eyebrow">Oxford V1 profile · Battery-PIMoE checkpoint</p>
+          <p className="eyebrow">Battery health intelligence</p>
           <h1 className="landing-hero__title mono">BatteryAI</h1>
-          <p className="landing-hero__tagline">Physics-informed battery health intelligence</p>
+          <p className="landing-hero__tagline">Battery intelligence for confident decisions.</p>
           <div className="landing-hero__body">
             <p className="landing-hero__lede">
-              BatteryAI accepts Oxford-style charge-curve data and runs a finalized Battery-PIMoE model to estimate state of health at the next
-              observed checkpoint, together with predictive uncertainty. The model runs on a computer you control and pair with — not in this page.
+              Upload battery test data, run a health analysis, and review clear, actionable insights in one streamlined workspace.
             </p>
             <ul className="landing-hero__spec mono">
-              <li>[01] State-of-health prediction</li>
-              <li>[02] Predictive uncertainty</li>
-              <li>[03] Self-hosted CUDA/CPU inference</li>
+              <li>[01] State of health</li>
+              <li>[02] Prediction uncertainty</li>
+              <li>[03] Written insights</li>
             </ul>
           </div>
           <div className="landing-hero__actions">
             <a className="btn" href={dashboardPath()}>Open Dashboard</a>
-            <a className="btn btn--secondary" href="#architecture">View Architecture</a>
+            <a className="btn btn--secondary" href="#how-it-works">See How It Works</a>
           </div>
         </div>
       </header>
 
-      <section className="landing-section" id="capabilities" aria-labelledby="capabilities-heading">
+      <section className="landing-section" id="product" aria-labelledby="product-heading">
         <div className="landing-section__inner">
           <Reveal className="landing-section__head">
             <p className="eyebrow eyebrow--copper">/ 001</p>
-            <h2 id="capabilities-heading" className="landing-section__title mono">What BatteryAI does.</h2>
+            <h2 id="product-heading" className="landing-section__title mono">What you get.</h2>
           </Reveal>
           <div className="landing-grid landing-grid--cards">
-            {capabilities.map((item) => <Reveal as="article" className="panel panel--card" key={item.index}>
+            {value.map((item) => <Reveal as="article" className="panel panel--card" key={item.index}>
               <p className="panel__index mono" aria-hidden="true">{item.index}</p>
               <h3 className="panel__title">{item.title}</h3>
               <p className="panel__body">{item.body}</p>
@@ -96,14 +79,14 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-section" id="architecture" aria-labelledby="architecture-heading">
+      <section className="landing-section" id="how-it-works" aria-labelledby="how-it-works-heading">
         <div className="landing-section__inner">
           <Reveal className="landing-section__head">
             <p className="eyebrow eyebrow--copper">/ 002</p>
-            <h2 id="architecture-heading" className="landing-section__title mono">Architecture.</h2>
+            <h2 id="how-it-works-heading" className="landing-section__title mono">How it works.</h2>
           </Reveal>
           <ol className="landing-chain">
-            {architecture.map((item) => <Reveal as="li" className="landing-chain__item" key={item.step}>
+            {steps.map((item) => <Reveal as="li" className="landing-chain__item" key={item.step}>
               <div className="panel panel--chain">
                 <p className="panel__index mono" aria-hidden="true">{item.step}</p>
                 <h3 className="panel__title">{item.title}</h3>
@@ -111,51 +94,20 @@ export function LandingPage() {
               </div>
             </Reveal>)}
           </ol>
-          <Reveal className="panel panel--facts">
-            <h3 className="mono panel__subtitle">What that means</h3>
-            <ul className="fact-list">{architectureFacts.map((fact) => <li key={fact}>{fact}</li>)}</ul>
-          </Reveal>
         </div>
       </section>
 
-      <section className="landing-section" id="model" aria-labelledby="model-heading">
+      <section className="landing-section landing-section--limits" id="benefits" aria-labelledby="benefits-heading">
         <div className="landing-section__inner">
           <Reveal className="landing-section__head">
             <p className="eyebrow eyebrow--copper">/ 003</p>
-            <h2 id="model-heading" className="landing-section__title mono">Model capabilities.</h2>
+            <h2 id="benefits-heading" className="landing-section__title mono">Built for review.</h2>
           </Reveal>
-          <div className="landing-grid landing-grid--split">
-            <Reveal className="panel">
-              <h3 className="mono panel__subtitle">Capability matrix</h3>
-              <dl className="matrix">
-                {capabilityMatrix.map((item) => <div className="matrix__row" key={item.label}>
-                  <dt className="mono">{item.label}</dt>
-                  <dd className={`matrix__value matrix__value--${item.state}`}>{item.value}</dd>
-                </div>)}
-              </dl>
-              <p className="panel__note">{profile.browserModel.reason}</p>
-            </Reveal>
-            <Reveal className="panel">
-              <h3 className="mono panel__subtitle">Active experts</h3>
-              <ul className="chips">{profile.activeExperts.map((expert) => <li className="chip mono" key={expert}>{expert}</li>)}</ul>
-              <h3 className="mono panel__subtitle">Target</h3>
-              <p className="panel__body">{profile.target}</p>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section landing-section--limits" id="limitations" aria-labelledby="limitations-heading">
-        <div className="landing-section__inner">
-          <Reveal className="landing-section__head">
-            <p className="eyebrow eyebrow--copper">/ 004</p>
-            <h2 id="limitations-heading" className="landing-section__title mono">Limitations.</h2>
-          </Reveal>
-          <Reveal className="panel panel--limits">
-            <LimitationsPanel profile={profile} />
+          <Reveal className="panel">
+            <ul className="fact-list fact-list--columns">{benefits.map((benefit) => <li key={benefit}>{benefit}</li>)}</ul>
           </Reveal>
           <Reveal className="landing-cta">
-            <p className="landing-cta__text">Pair your own BatteryAI service and run the model on your data.</p>
+            <p className="landing-cta__text">Run your first battery health analysis.</p>
             <a className="btn" href={dashboardPath()}>Open Dashboard</a>
           </Reveal>
         </div>

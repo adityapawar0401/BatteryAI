@@ -41,7 +41,7 @@ export function validateRows(rows: CurveRow[]): string[] {
     if (row.capacity_Ah < -20 || row.capacity_Ah > 20) errors.push(`Row ${index + 1}, capacity_Ah: expected ampere-hours between -20 and 20.`);
     if (row.temperature_K < 200 || row.temperature_K > 500) errors.push(`Row ${index + 1}, temperature_K: expected kelvin between 200 and 500.`);
     if (row.actual_soh != null && (!Number.isFinite(row.actual_soh) || row.actual_soh < 0 || row.actual_soh > 150)) errors.push(`Row ${index + 1}, actual_soh: expected percent between 0 and 150.`);
-    if (!["C1ch", "C1dc", "OCVch", "OCVdc"].includes(row.modality)) errors.push(`Row ${index + 1}, modality: unsupported Oxford modality.`);
+    if (!["C1ch", "C1dc", "OCVch", "OCVdc"].includes(row.modality)) errors.push(`Row ${index + 1}, modality: expected one of C1ch, C1dc, OCVch, OCVdc.`);
     groups.set(row.sequence_id, [...(groups.get(row.sequence_id) ?? []), row]);
   });
   if (groups.size > 64) errors.push("At most 64 sequences are allowed.");

@@ -6,14 +6,14 @@ import { LocalOllamaSuggestionProvider } from "../llm/provider";
 import { SuggestionPanel, type LocalLlmStatus } from "../llm/SuggestionPanel";
 import { parseCsv, readCsvFile, resultsToCsv, validateRows } from "../csv";
 import { applyBuildDeploymentConfig, validateModelProfile, type AppConfig } from "../config";
+import { clientErrorMessage } from "../clientText";
 import { assetPath } from "../routes";
 import type { BackendMode, CurveRow, InferenceResponse, ModelProfile } from "../types";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DataInputSection, type FieldSchema, type Tab } from "./DataInputSection";
 import { OverviewSection } from "./OverviewSection";
-import { PredictionSection } from "./PredictionSection";
-import { SystemStatusSection } from "./SystemStatusSection";
+import { ResultsSection } from "./ResultsSection";
 import { ValidationSection } from "./ValidationSection";
 import { summarizeRows } from "./summary";
 import "../styles/tokens.css";
@@ -37,15 +37,15 @@ export function DashboardPage() {
   const [rows, setRows] = useState<CurveRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [validated, setValidated] = useState(false);
-  const [notice, setNotice] = useState("Load an example or provide Oxford curve rows.");
-  const [mode, setMode] = useState<BackendMode>("auto");
+  const [notice, setNotice] = useState("Load the example or add your own battery data.");
+  // The analysis route is selected internally and is not a customer-facing choice.
+  const [mode] = useState<BackendMode>("auto");
   const [endpoint, setEndpoint] = useState("http://127.0.0.1:8000");
   const [token, setToken] = useState(() => sessionStorage.getItem("batteryai-pairing-token") ?? "");
   const [paired, setPaired] = useState(false);
-  const [device, setDevice] = useState("—");
   const [busy, setBusy] = useState(false);
   const [response, setResponse] = useState<InferenceResponse | null>(null);
-  const [llmStatus, setLlmStatus] = useState<LocalLlmStatus>("unavailable");
+  const [, setLlmStatus] = useState<LocalLlmStatus>("unavailable");
   const [navOpen, setNavOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -58,7 +58,7 @@ export function DashboardPage() {
       const validatedApp = applyBuildDeploymentConfig(app); const validatedProfile = validateModelProfile(model);
       if (validatedApp.modelProfile !== validatedProfile.id) throw new Error("App and model profile selections do not match.");
       setConfig(validatedApp); setProfile(validatedProfile); setSchema(input); setEndpoint(validatedApp.remoteEnabled ? validatedApp.remoteApiUrl! : validatedApp.localEndpoint);
-    }).catch((error) => setStartupError(error instanceof Error ? error.message : "Configuration failed."));
+    }).catch(() => setStartupError("BatteryAI could not start. Refresh to try again."));
   }, []);
 
   const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token, profile?.modelSha256, config?.remoteEnabled ? config.remoteApiUrl : null), [endpoint, token, profile, config]);
@@ -69,22 +69,22 @@ export function DashboardPage() {
 
   function acceptText(text: string): void {
     setCsvText(text); setValidated(false);
-    try { const parsed = parseCsv(text); setRows(parsed); setErrors([]); setNotice(`${parsed.length.toLocaleString()} rows parsed. Validate before prediction.`); }
-    catch (error) { setRows([]); setErrors([error instanceof Error ? error.message : "CSV parsing failed."]); }
+    try { const parsed = parseCsv(text); setRows(parsed); setErrors([]); setNotice(`${parsed.length.toLocaleString()} rows added. Validate before running the analysis.`); }
+    catch (error) { setRows([]); setErrors([clientErrorMessage(error instanceof Error ? error.message : "")]); }
   }
   function validate(): boolean {
     const next = validateRows(rows); setErrors(next); setValidated(next.length === 0);
-    setNotice(next.length ? "Validation found problems." : `${rows.length.toLocaleString()} rows satisfy the canonical contract.`); return next.length === 0;
+    setNotice(next.length ? "Validation found problems." : `${rows.length.toLocaleString()} rows passed validation.`); return next.length === 0;
   }
   async function loadExample(): Promise<void> {
     const text = await fetch(assetPath("fixtures/oxford-real-example.csv")).then((r) => r.text()); acceptText(text); setTab("table");
   }
-  async function pair(): Promise<void> {
-    const capability = await local.capability(); setPaired(capability.available); setDevice(capability.device ?? "—");
-    if (capability.available) { sessionStorage.setItem("batteryai-pairing-token", token); setNotice(`Paired with ${capability.device}; model ${capability.modelSha256?.slice(0, 12)}…`); setErrors([]); }
-    else setErrors([capability.reason ?? "Pairing failed."]);
+  async function connect(): Promise<void> {
+    const capability = await local.capability(); setPaired(capability.available);
+    if (capability.available) { sessionStorage.setItem("batteryai-pairing-token", token); setNotice("Connected securely."); setErrors([]); }
+    else setErrors([clientErrorMessage(capability.reason ?? "")]);
   }
-  async function runPrediction(): Promise<void> {
+  async function runAnalysis(): Promise<void> {
     if (!profile || !browser || !validate()) return;
     setBusy(true); setResponse(null); abortRef.current = new AbortController();
     try {
@@ -92,8 +92,8 @@ export function DashboardPage() {
       if (mode === "local") { if (!paired) throw new Error("Pair the local engine before sending battery data."); result = await local.infer(rows, abortRef.current.signal); }
       else if (mode === "browser") result = await browser.infer(rows, abortRef.current.signal);
       else result = await new AutoInferenceProvider(browser, local, paired).infer(rows, abortRef.current.signal);
-      setResponse(result); setDevice(result.results[0]?.runtime_device ?? "—"); setNotice(`${result.results.length} prediction${result.results.length === 1 ? "" : "s"} completed with ${result.results[0]?.backend}.`);
-    } catch (error) { setErrors([error instanceof Error ? error.message : "Inference failed."]); }
+      setResponse(result); setNotice(`${result.results.length} result${result.results.length === 1 ? "" : "s"} completed.`);
+    } catch (error) { setErrors([clientErrorMessage(error instanceof Error ? error.message : "")]); }
     finally { setBusy(false); }
   }
   function editRow(index: number, field: keyof CurveRow, value: string): void {
@@ -110,35 +110,34 @@ export function DashboardPage() {
     setRows([]); setCsvText(""); setResponse(null); setErrors([]); setValidated(false); setNotice("Cleared.");
   }
 
-  if (startupError) return <main className="dash-startup"><section className="dash-error"><h1>BatteryAI could not start</h1><p>{startupError}</p></section></main>;
-  if (!config || !profile || !schema) return <main className="dash-startup"><p>Loading validated BatteryAI configuration…</p></main>;
+  if (startupError) return <main className="dash-startup"><section className="dash-error"><h1>BatteryAI is unavailable</h1><p>{startupError}</p></section></main>;
+  if (!config || !profile || !schema) return <main className="dash-startup"><p>Loading BatteryAI…</p></main>;
 
   return <div className="dash">
     <a className="skip-link" href="#overview">Skip to content</a>
     <DashboardSidebar open={navOpen} onClose={closeNav} />
     <div className="dash-main">
-      <DashboardHeader remoteEnabled={config.remoteEnabled} endpoint={endpoint} paired={paired} device={device} llmStatus={llmStatus} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
+      <DashboardHeader connected={paired} busy={busy} completed={!!response} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
       <div className="dash-body">
-        {config.remoteEnabled && <p className="dash-warning">Inference runs on the paired host computer, which must remain online. The numerical model and Ollama do not run on GitHub Pages.</p>}
-        <OverviewSection response={response} profile={profile} />
+        <OverviewSection
+          response={response} connected={paired} accessCode={token}
+          onAccessCodeChange={(value) => { setToken(value); setPaired(false); }} onConnect={connect}
+          rowCount={rows.length} validated={validated} busy={busy}
+        />
         <DataInputSection
           tab={tab} onTabChange={setTab} csvText={csvText} onCsvTextChange={setCsvText} onAcceptText={acceptText}
-          onUpload={(file) => readCsvFile(file).then(acceptText).catch((error) => setErrors([error instanceof Error ? error.message : "CSV upload failed."]))}
+          onUpload={(file) => readCsvFile(file).then(acceptText).catch((error) => setErrors([clientErrorMessage(error instanceof Error ? error.message : "")]))}
           rows={rows} summary={summary} fieldSchema={schema.properties.rows.items.properties} notice={notice}
           onEditRow={editRow} onAddRow={addRow} onValidate={validate} onClear={clear} onLoadExample={loadExample}
         />
         <ValidationSection summary={summary} errors={errors} validated={validated} />
-        <PredictionSection
-          profile={profile} remoteEnabled={config.remoteEnabled} mode={mode} onModeChange={setMode}
-          endpoint={endpoint} onEndpointChange={(value) => { setEndpoint(value); setPaired(false); }}
-          token={token} onTokenChange={(value) => { setToken(value); setPaired(false); }}
-          paired={paired} device={device} busy={busy} rowCount={rows.length} response={response}
-          onPair={pair} onRun={runPrediction} onCancel={() => abortRef.current?.abort()}
+        <ResultsSection
+          connected={paired} busy={busy} rowCount={rows.length} response={response}
+          onRun={runAnalysis} onCancel={() => abortRef.current?.abort()}
           onExportJson={() => download("batteryai-results.json", JSON.stringify(response, null, 2), "application/json")}
           onExportCsv={() => download("batteryai-results.csv", resultsToCsv((response?.results ?? []) as unknown as Record<string, unknown>[]), "text/csv")}
         />
         <SuggestionPanel paired={paired} latestResult={response?.results[0] ?? null} provider={suggestionProvider} onStatusChange={setLlmStatus} />
-        <SystemStatusSection config={config} profile={profile} endpoint={endpoint} paired={paired} device={device} llmStatus={llmStatus} />
       </div>
     </div>
   </div>;

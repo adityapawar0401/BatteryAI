@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PredictionResult } from "../types";
-import { OLLAMA_MODEL, OLLAMA_PULL_COMMAND, type LocalLlmCapabilities, type SuggestionProvider } from "./provider";
+import { clientErrorMessage, clientSafeSummary, keepClientSafe, INSIGHTS_UNAVAILABLE } from "../clientText";
+import { type LocalLlmCapabilities, type SuggestionProvider } from "./provider";
 import { parseSuggestions, type Suggestions } from "./schema";
 
 export type LocalLlmStatus = "unavailable" | "checking" | "ready" | "generating" | "completed" | "error";
@@ -12,12 +13,22 @@ interface SuggestionPanelProps {
   onStatusChange?: (status: LocalLlmStatus) => void;
 }
 
+/** Customer-facing wording for each internal state; the state machine is unchanged. */
+const statusLabel: Record<LocalLlmStatus, string> = {
+  unavailable: "Unavailable",
+  checking: "Checking",
+  ready: "Ready",
+  generating: "Generating",
+  completed: "Completed",
+  error: "Unavailable",
+};
+
 function resultKey(result: PredictionResult | null): string { return result ? `${result.request_id}:${result.sequence_id}` : ""; }
 
 export function SuggestionPanel({ paired, latestResult, provider, onStatusChange }: SuggestionPanelProps) {
   const [status, setStatus] = useState<LocalLlmStatus>("unavailable");
   const [capability, setCapability] = useState<LocalLlmCapabilities | null>(null);
-  const [message, setMessage] = useState("Pair the BatteryAI local service to check Local Ollama.");
+  const [message, setMessage] = useState("Connect to check whether insights are available.");
   const [error, setError] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
   const latestResultRef = useRef(latestResult);
@@ -30,13 +41,13 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
     const next = resultKey(latestResult);
     if (previousResultKey.current && next !== previousResultKey.current) {
       setSuggestions(null); setError("");
-      if (capability?.ready) { setStatus("ready"); setMessage("Ready for the latest completed prediction."); }
+      if (capability?.ready) { setStatus("ready"); setMessage("Ready for the latest completed analysis."); }
     }
     previousResultKey.current = next;
   }, [capability?.ready, latestResult]);
   useEffect(() => {
     if (!paired) {
-      setCapability(null); setStatus("unavailable"); setMessage("Pair the BatteryAI local service to check Local Ollama."); setError("");
+      setCapability(null); setStatus("unavailable"); setMessage("Connect to check whether insights are available."); setError("");
       return;
     }
     const controller = new AbortController();
@@ -45,14 +56,14 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
   }, [paired, provider]);
 
   async function check(signal?: AbortSignal): Promise<void> {
-    setStatus("checking"); setError(""); setMessage("Checking Local Ollama and llama3.2:3b…");
+    setStatus("checking"); setError(""); setMessage("Checking whether insights are available…");
     try {
       const next = await provider.capability(signal); setCapability(next);
-      if (next.ready && next.generation_available) { setStatus("ready"); setMessage("Local Ollama is ready."); }
-      else { setStatus("unavailable"); setMessage(next.reason ?? "Local Ollama suggestions are unavailable."); }
+      if (next.ready && next.generation_available) { setStatus("ready"); setMessage("Insights are ready to generate."); }
+      else { setStatus("unavailable"); setMessage(INSIGHTS_UNAVAILABLE); }
     } catch (checkError) {
       if (checkError instanceof DOMException && checkError.name === "AbortError") return;
-      setStatus("error"); setError(checkError instanceof Error ? checkError.message : "Local LLM capability check failed.");
+      setStatus("error"); setError(INSIGHTS_UNAVAILABLE);
     }
   }
 
@@ -60,36 +71,40 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
     const result = latestResultRef.current;
     if (!result || !capability?.ready || !paired) return;
     const requestedKey = resultKey(result); const controller = new AbortController(); generationAbort.current = controller;
-    setStatus("generating"); setMessage("Generating suggestions from the latest completed prediction…"); setError(""); setSuggestions(null);
+    setStatus("generating"); setMessage("Generating insights from the latest completed analysis…"); setError(""); setSuggestions(null);
     try {
       const response = await provider.generate(result, controller.signal);
-      if (resultKey(latestResultRef.current) !== requestedKey) { setStatus("ready"); setMessage("Prediction updated. Generate suggestions for the latest result."); return; }
-      setSuggestions(parseSuggestions(response.suggestions)); setStatus("completed"); setMessage(`Completed locally in ${response.timing.total_ms.toFixed(0)} ms.`);
+      if (resultKey(latestResultRef.current) !== requestedKey) { setStatus("ready"); setMessage("Analysis updated. Generate insights for the latest result."); return; }
+      const parsed = parseSuggestions(response.suggestions);
+      // Second layer: drop anything that still names an internal component.
+      setSuggestions({ summary: clientSafeSummary(parsed.summary), actions: keepClientSafe(parsed.actions), cautions: keepClientSafe(parsed.cautions) });
+      setStatus("completed"); setMessage("Insights completed.");
     } catch (generationError) {
-      if (generationError instanceof DOMException && generationError.name === "AbortError") { setStatus("ready"); setMessage("Suggestion generation cancelled."); return; }
-      setStatus("error"); setError(generationError instanceof Error ? generationError.message : "Local suggestion generation failed.");
+      if (generationError instanceof DOMException && generationError.name === "AbortError") { setStatus("ready"); setMessage("Insight generation cancelled."); return; }
+      setStatus("error"); setError(clientErrorMessage(generationError instanceof Error ? generationError.message : ""));
     } finally { generationAbort.current = null; }
   }
 
   const canGenerate = paired && !!latestResult && !!capability?.ready && ["ready", "completed", "error"].includes(status);
 
-  return <section className="dash-section" id="suggestions" aria-labelledby="suggestion-heading">
+  return <section className="dash-section" id="insights" aria-labelledby="suggestion-heading">
     <div className="dash-section__head"><div>
-      <p className="eyebrow">Suggestions</p><h2 id="suggestion-heading">AI-generated suggestions</h2>
+      <p className="eyebrow">Insights</p><h2 id="suggestion-heading">AI Insights</h2>
     </div></div>
-    <p>Provider: <strong>Local Ollama</strong> · Model: <strong>{OLLAMA_MODEL}</strong></p>
-    <p className="dash-hint">The paired BatteryAI service sends only a bounded prediction summary to Ollama on loopback.</p>
-    <p className="dash-notice" role="status"><strong>Local LLM: {status}</strong> — {message}</p>
+    <p className="dash-hint">Insights summarize the completed analysis in plain language. They never change the values above.</p>
+    <p className="dash-notice" role="status"><strong>Insights: {statusLabel[status]}</strong> — {message}</p>
     {error && <p className="dash-error" role="alert">{error}</p>}
-    {capability?.corrective_command && <p className="dash-error">Run: <code>{capability.corrective_command}</code></p>}
     <div className="dash-actions dash-actions--wrap">
-      {paired && ["unavailable", "error"].includes(status) && <button type="button" className="btn btn--secondary" onClick={() => void check()}>Check local LLM</button>}
-      {canGenerate && <button type="button" className="btn" onClick={generate}>Generate suggestions</button>}
+      {paired && ["unavailable", "error"].includes(status) && <button type="button" className="btn btn--secondary" onClick={() => void check()}>Check again</button>}
+      {canGenerate && <button type="button" className="btn" onClick={generate}>Generate insights</button>}
       {status === "generating" && <button type="button" className="btn btn--secondary" onClick={() => generationAbort.current?.abort()}>Cancel</button>}
     </div>
-    {suggestions ? <div className="suggestion-output"><h3>{suggestions.summary}</h3>{suggestions.actions.length > 0 && <><h4 className="mono">Actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul></>}{suggestions.cautions.length > 0 && <><h4 className="mono">Cautions</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></>}</div>
-      : <div className="dash-empty">{latestResult ? (capability?.ready ? "Local Ollama is ready to interpret the latest completed prediction." : `Suggestions require local ${OLLAMA_MODEL}.`) : "Complete a numerical prediction to enable suggestions."}</div>}
-    {capability && !capability.model_installed && !capability.corrective_command && <p className="dash-hint">If the model is missing, run <code>{OLLAMA_PULL_COMMAND}</code>.</p>}
-    <p className="dash-warning">AI-generated decision support only—not a safety certification. Suggestions cannot change the numerical prediction above.</p>
+    {suggestions ? <div className="suggestion-output">
+      <h3>{suggestions.summary}</h3>
+      {suggestions.actions.length > 0 && <><h4 className="mono">Recommended actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul></>}
+      {suggestions.cautions.length > 0 && <><h4 className="mono">Considerations</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></>}
+    </div>
+      : <div className="dash-empty">{latestResult ? (capability?.ready ? "Insights are ready to generate for the latest completed analysis." : INSIGHTS_UNAVAILABLE) : "Complete an analysis to generate insights."}</div>}
+    <p className="dash-warning">AI-generated decision support only—not a safety certification. Insights cannot change the analysis results above.</p>
   </section>;
 }

@@ -1,5 +1,67 @@
 # BatteryAI final implementation report
 
+## Client-facing content and confidentiality cleanup — 2026-07-20
+
+### Scope
+
+Presentation-layer cleanup so the public site reads as a finished product rather than an implementation report. No numerical inference, preprocessing, checkpoint loading, device selection, authentication, CORS, rate limiting, Tailscale, or GitHub Actions deployment behavior was changed. Internal values continue to flow through the API exactly as before; they are simply no longer presented.
+
+### Client-facing sections removed
+
+Landing page: Architecture (the four-stage chain and the "what that means" facts), Model capabilities (capability matrix, active experts, target), and Technical limitations (model and deployment lists). Dashboard: the entire System Status panel, the backend-mode selector, the service-endpoint field, the checkpoint-hash row and its details disclosure, and the device/provider rows.
+
+### Client-facing sections retained or added
+
+Landing: navigation, hero, product value, how it works, benefits, dashboard CTA, minimal footer. Dashboard: Overview (secure connection, progress, latest result), Data, Validation, Results, Insights.
+
+### Internal terms removed from the visible UI
+
+Oxford, Oxford V1, Battery-PIMoE, active experts, masked experts, model profile, checkpoint, checkpoint SHA-256, Ollama, llama3.2:3b, local LLM, browser ONNX, CUDA/CPU device, loopback, remote/local deployment mode, the backend and Funnel URLs, host-computer and GitHub Pages explanations, RUL availability, and the next-observed-checkpoint horizon. The field-help descriptions in both copies of the input schema were rewritten (they previously read "Oxford curve modality" and "converted from Oxford mAh"); field names, types, units and every validation rule are unchanged. Both page `<meta name="description">` tags were rewritten — the confidentiality scan caught them, and they are public in search results and link previews.
+
+Field names the workflow genuinely requires — `source_checkpoint`, `target_checkpoint`, `modality`, `capacity_Ah` and the rest — remain visible, because users need them to prepare a valid file.
+
+### Connection terminology
+
+"Pair the host engine" → "Connect"; "pairing token" → "Access code"; "paired/unpaired" → "Connected/Disconnected"; reconnect replaces re-pair. The service address is supplied by configuration, is never rendered, and is not editable. Internally the flow is byte-for-byte the same: the same `X-BatteryAI-Token` header, the same `/v1/capabilities` probe, the same `sessionStorage` key, and the same refusal to send anything before an explicit connect.
+
+### Insights terminology
+
+"AI-generated suggestions" → "AI Insights"; "Cautions" → "Considerations"; "Actions" → "Recommended actions". Provider and model labels, the Ollama corrective command, and the "completed locally" timing text are gone. The response contract (`summary`/`actions`/`cautions`) and its validation are unchanged.
+
+### Generated-output confidentiality
+
+The leak was structural: the whole summary — including `model_profile`, `model_sha256`, `active_experts` and a `limitations` list containing "RUL unavailable" and "next-observed-checkpoint horizon varies" — was serialized into the prompt, so the model echoed it back ("Battery prediction data for Oxford-v1 model"). Two layers now prevent that:
+
+1. **Prompt payload narrowed** (`ollama.py`): only `predicted_soh`, `predictive_std`, `actual_soh`, `absolute_error` and `input_quality` reach the model. The HTTP request contract, the strict `SuggestionSummary` validation, the structured-output schema, the Python validation and the bounded retry are all untouched — the endpoint still accepts exactly the same body.
+2. **System prompt rewritten** to forbid naming any model, provider, dataset, checkpoint, component, device, deployment or unavailable feature, without seeding internal vocabulary into the instruction itself.
+3. **Frontend guard** (`clientText.ts`) as defense in depth: any generated entry that still carries an internal term is dropped, and a leaking summary is replaced with an equivalent product-level statement. Numbers are never touched.
+
+Verified against the real model on this machine: it previously produced "Battery prediction data for Oxford-v1 model"; it now returns clean customer-facing text with zero internal terms.
+
+### Error messages
+
+Service failures are translated for display while the detailed originals continue to reach the service logs: rejected token → "The access code is invalid or has expired."; not connected → "Connect to the analysis service before running an analysis."; insight failures → "AI insights are temporarily unavailable."; rate limiting → "The analysis service is busy. Wait a moment and try again."; anything unrecognized that carries an internal term → "The analysis service is currently unavailable." CSV validation errors pass through verbatim, because users need them to fix their file.
+
+### Exact components changed
+
+- Added: `src/clientText.ts` (+ tests), `src/dashboard/ConnectionPanel.tsx`, `src/dashboard/ResultsSection.tsx`.
+- Removed: `src/dashboard/SystemStatusSection.tsx`, `src/dashboard/PredictionSection.tsx`, `src/ui/LimitationsPanel.tsx`.
+- Rewritten: `src/landing/LandingPage.tsx`, `LandingNav.tsx`, `LandingFooter.tsx`, `src/dashboard/OverviewSection.tsx`, `DashboardHeader.tsx`, `src/llm/SuggestionPanel.tsx`.
+- Edited: `src/dashboard/DashboardPage.tsx`, `DashboardSidebar.tsx`, `DataInputSection.tsx`, `ValidationSection.tsx`, `StatusBadge.tsx`, `src/llm/provider.ts` (limitation wording only), `src/styles/{components,dashboard}.css`, both `index.html` files, `packages/contracts/oxford-input-schema.json` and its served copy (descriptions only), `services/local_inference/batteryai_runtime/ollama.py` (prompt only), `scripts/build-pages.ps1` and `.github/workflows/pages.yml` (added a rendered-markup confidentiality scan).
+
+### Verification
+
+- Frontend: **94 tests in 14 files** pass; `npm run typecheck` clean.
+- Python: **59 tests** pass, including two new ones asserting the prompt carries no internal identifiers and the system prompt forbids naming components.
+- `scripts\test-all.ps1` prints `BATTERYAI_TEST_ALL=PASSED`.
+- Default and remote production builds both emit `dist/index.html` and `dist/dashboard/index.html` and pass the artifact scan, which now also fails on any internal term in rendered markup.
+- Browser review over 13 states (landing and dashboard, desktop 1440×900 and mobile 390×844, disconnected → connected → validated → results → insights → error): no internal term and no horizontal overflow anywhere. The insights check fed deliberately leaky generated output and confirmed the UI scrubbed it.
+- **Numerical equivalence confirmed against the live engine**: a real inference over the 3,510-row example returned `predicted_soh` 97.06190490722656, `predictive_std` 8.065762519836426, `actual_soh` 98.67620878772155 and `absolute_error` 1.6143038804949867 — bit-identical to the recorded fixture. `engine.py`, `preprocessing.py`, `contracts.py`, `app.py` and `battery_pimoe/` are untouched.
+
+### Remaining visible technical terms and why
+
+`source_checkpoint`, `target_checkpoint`, `modality`, `point_index`, `sequence_id`, `cell_id`, `time_s`, `voltage_V`, `capacity_Ah`, `temperature_K` and `actual_soh` remain in the CSV help and validation output. They are the column names of the file the customer must supply; removing them would make a valid file impossible to prepare. `pp` (percentage points) remains as the uncertainty unit. Bundled JavaScript still contains API contract strings such as `oxford-v1` and the configuration filenames, which the application requires to function; the requirement is that they never reach the rendered experience, and the markup scan plus the browser review confirm they do not.
+
 ## Landing page and dashboard UI/UX revamp — 2026-07-17
 
 ### Scope

@@ -27,6 +27,11 @@ try {
     if ($PrivateText) { throw "Private path, token text, or raw dataset name found in static build: $($PrivateText[0].Path)" }
     $FakeText = $Text | Select-String -Pattern 'cdn\.tailwindcss\.com|Transformer-V4|LIVE DATA STREAM|SYSTEMS NOMINAL|Adaptive Charging|Kinetic Energy Intelligence|Request deployment|99\.8\s*%?\s*accuracy|Prediction accuracy'
     if ($FakeText) { throw "CDN script or unsupported marketing claim found in static build: $($FakeText[0].Path)" }
+    # Customer-facing HTML must never carry internal implementation vocabulary.
+    # Bundled JS keeps API contract strings, which is required for the app to work.
+    $Markup = Get-ChildItem -LiteralPath $Dist -Recurse -File -Filter '*.html'
+    $InternalText = $Markup | Select-String -Pattern 'Oxford|PIMoE|Ollama|llama3\.2|ONNX|FastAPI|Tailscale|Funnel|GitHub Pages|CUDA|SHA-256|active experts|masked experts|model profile|RUL |next-observed-checkpoint|loopback|host computer'
+    if ($InternalText) { throw "Internal implementation term found in rendered markup: $($InternalText[0].Path) -> $($InternalText[0].Line.Trim())" }
     Write-Host "GitHub Pages artifact verified: $Dist"
     Write-Host '  landing   -> dist/index.html'
     Write-Host '  dashboard -> dist/dashboard/index.html'

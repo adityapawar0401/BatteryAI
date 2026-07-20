@@ -11,9 +11,11 @@ Start with [START_HERE.md](START_HERE.md). The static React application can be h
 | Landing page | `https://adityapawar0401.github.io/BatteryAI/` | `http://localhost:5173/` |
 | Dashboard | `https://adityapawar0401.github.io/BatteryAI/dashboard/` | `http://localhost:5173/dashboard/` |
 
-The landing page describes what BatteryAI does and contacts no backend. The dashboard is the application: CSV input, validation, prediction, suggestions and system status.
+The landing page describes what BatteryAI does and contacts no backend. The dashboard is the application: data input, validation, analysis, results and AI insights.
 
-There is **no login, sign-up, or account**. The dashboard still requires explicit pairing with your BatteryAI service using the endpoint and the pairing token the service prints at startup; pairing is not a user login and the token stays in `sessionStorage` for that browser tab only. GitHub Pages serves static files only — the host computer runs the model, so it must stay online for remote use. See [docs/github-pages.md](docs/github-pages.md).
+There is **no login, sign-up, or account**. The dashboard still requires explicit pairing with your BatteryAI service using the pairing token it prints at startup; pairing is not a user login and the token stays in `sessionStorage` for that browser tab only. GitHub Pages serves static files only — the host computer runs the model, so it must stay online for remote use. See [docs/github-pages.md](docs/github-pages.md).
+
+The public UI is deliberately customer-facing: it presents outcomes and workflow, and does not name the model, checkpoint, experts, device, LLM, hosting or deployment mode. Internally nothing changed — the pairing token is simply labelled "access code", and the service URL is used but not displayed. Technical detail lives in `docs/` and this repository, not on the website. See [docs/client-experience.md](docs/client-experience.md).
 
 ## Repository map
 

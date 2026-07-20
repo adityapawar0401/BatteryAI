@@ -25,4 +25,6 @@ Nothing in the source hard-codes `/`, `/dashboard/` or a domain-root asset path.
 
 `scripts/build-pages.ps1` and the workflow both fail the build when `dist` is missing `index.html` or `dashboard/index.html`, or when it contains a checkpoint, `.onnx` model, `.mat` dataset, `_inputs`, `batteryai-gpu-env`, local reports, a local absolute path, pairing-token text, the `landingpage.txt`/`dashboard.txt` design references, a CDN Tailwind script, or an unsupported marketing claim.
 
+They also fail when an internal implementation term appears in rendered markup, including the `<meta name="description">` tags. Bundled JavaScript may still contain API contract strings the application needs; the requirement is that they never reach the rendered client experience. See [client-experience.md](client-experience.md).
+
 Without browser ONNX, the hosted app remains useful for schema validation, engine pairing, numerical result display and paired local-Ollama suggestions. The static artifact contains no LLM runtime; the browser calls only the paired BatteryAI service.

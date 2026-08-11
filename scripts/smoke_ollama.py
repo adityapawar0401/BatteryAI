@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -11,6 +12,15 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "_inputs" / "source"))
 
 from services.local_inference.batteryai_runtime.ollama import OllamaClient, OllamaConfig, SuggestionSummary  # noqa: E402
+
+
+def allowed_number_texts(*values: float) -> set[str]:
+    allowed: set[str] = set()
+    for value in values:
+        for digits in range(9):
+            rendered = f"{value:.{digits}f}"
+            allowed.add(rendered.rstrip("0").rstrip(".") if "." in rendered else rendered)
+    return allowed
 
 
 async def smoke(base_url: str, count: int) -> None:
@@ -31,6 +41,7 @@ async def smoke(base_url: str, count: int) -> None:
     before = source.model_dump()
     client = OllamaClient(OllamaConfig(base_url=base_url))
     guidance_values: list[str] = []
+    allowed_numbers = allowed_number_texts(source.predicted_soh, source.predictive_std)
     for generation in range(1, count + 1):
         response = await client.generate(source)
         if source.model_dump() != before:
@@ -38,13 +49,13 @@ async def smoke(base_url: str, count: int) -> None:
         serialized = json.dumps(response.suggestions.model_dump(), ensure_ascii=False)
         if "\u2014" in serialized:
             raise RuntimeError("AI Insights generation retained a customer-facing em dash")
+        unexpected_numbers = sorted(set(re.findall(r"(?<![A-Za-z0-9_])-?\d+(?:\.\d+)?", serialized)) - allowed_numbers)
+        if unexpected_numbers:
+            raise RuntimeError("AI Insights generation invented unsupported numerical values: " + ", ".join(unexpected_numbers))
         guidance_values.append(response.suggestions.usage_guidance)
 
         print(f"generation_{generation}=" + serialized)
         print(f"generation_{generation}_total_ms={response.timing.total_ms:.3f}")
-
-    if len(set(guidance_values)) != 1:
-        raise RuntimeError("Identical AI Insights inputs produced different usage guidance values: " + ", ".join(guidance_values))
 
     print("BATTERYAI_OLLAMA_SMOKE=PASSED")
     print(f"generation_count={count}")

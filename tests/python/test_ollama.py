@@ -86,12 +86,12 @@ def test_ollama_url_is_loopback_http_only(url):
     assert OllamaConfig(base_url="http://[::1]:11434").base_url == "http://[::1]:11434"
 
 
-def test_checked_in_ollama_config_uses_fixed_deterministic_sampling(monkeypatch):
+def test_checked_in_ollama_config_uses_moderate_sampling_without_seed(monkeypatch):
     monkeypatch.delenv("BATTERYAI_OLLAMA_TEMPERATURE", raising=False)
-    monkeypatch.delenv("BATTERYAI_OLLAMA_SEED", raising=False)
+    monkeypatch.setenv("BATTERYAI_OLLAMA_SEED", "123")
     config = load_ollama_config(Path(__file__).resolve().parents[2])
-    assert config.temperature == 0.0
-    assert config.seed == 123
+    assert config.temperature == 0.2
+    assert "seed" not in config.model_dump()
 
 
 def test_ollama_unavailable_is_nonfatal_capability():
@@ -164,7 +164,8 @@ def test_successful_structured_completion_is_bounded_and_preserves_input_numbers
     response = run(client_for(handler).generate(source))
     assert response.suggestions.summary == "The estimated battery state of health remains relatively strong."
     assert captured["model"] == OLLAMA_MODEL and captured["stream"] is False and "format" in captured
-    assert captured["options"] == {"temperature": 0.0, "seed": 123, "num_predict": 300, "num_ctx": 2048}
+    assert captured["options"] == {"temperature": 0.2, "num_predict": 300, "num_ctx": 2048}
+    assert "seed" not in captured["options"]
     assert "tools" not in captured and "images" not in captured
     user_data = captured["messages"][1]["content"]
     assert "BEGIN BATTERYAI_PREDICTION_DATA" in user_data
@@ -179,7 +180,7 @@ def test_successful_structured_completion_is_bounded_and_preserves_input_numbers
     assert response.timing.ollama_total_ms == 2.0
 
 
-def test_identical_structured_requests_reuse_deterministic_generation_settings():
+def test_identical_structured_requests_reuse_moderate_generation_settings_without_seed():
     chat_requests = []
 
     def handler(request):
@@ -194,17 +195,16 @@ def test_identical_structured_requests_reuse_deterministic_generation_settings()
     second = run(client.generate(source))
 
     assert len(chat_requests) == 2
-    expected_options = {"temperature": 0.0, "seed": 123, "num_predict": 300, "num_ctx": 2048}
+    expected_options = {"temperature": 0.2, "num_predict": 300, "num_ctx": 2048}
     assert [request["options"] for request in chat_requests] == [expected_options, expected_options]
+    assert all("seed" not in request["options"] for request in chat_requests)
     assert chat_requests[0]["messages"] == chat_requests[1]["messages"]
     assert chat_requests[0]["format"] == chat_requests[1]["format"]
     assert first.suggestions.usage_guidance == second.suggestions.usage_guidance == "normal_use"
     assert source.predicted_soh == 97.06190490722656
 
     with pytest.raises(ValidationError):
-        OllamaConfig(temperature=0.1)
-    with pytest.raises(ValidationError):
-        OllamaConfig(seed=-1)
+        OllamaConfig(temperature=0.2001)
 
 
 @pytest.mark.parametrize(
@@ -258,6 +258,8 @@ def test_valid_suggestion_content_is_trimmed_and_schema_matches_runtime_contract
         "Check the actual SOC before continuing.",
         "Check the battery's State of Charge before continuing.",
         "The prediction model accuracy may be low.",
+        "Predictive uncertainty is the prediction error.",
+        "Predictive uncertainty measures model accuracy.",
         "Review the software version and calibration history.",
         "Review the Oxford Battery-PIMoE checkpoint architecture.",
         "The Ollama backend runs through Tailscale Funnel on CUDA or CPU.",
@@ -569,6 +571,16 @@ def test_system_prompt_defines_soh_only_customer_guidance():
         "service or replacement planning",
         "percentage points, never percent",
         "only the predicted soh may be quoted as a percent",
+        "predicted state of health is the primary battery-health signal",
+        "use predictive uncertainty only to moderate confidence",
+        "do not automatically escalate the usage_guidance category solely because",
+        "does not imply that the battery is unhealthy",
+        "do not describe uncertainty as prediction error, model accuracy, or a probability",
+        "never say that uncertainty indicates battery degradation",
+        "when the soh interpretation supports ordinary use, keep normal_use",
+        "do not suggest service or replacement because of uncertainty alone",
+        "the only numerical values you may write are the supplied predicted soh",
+        "without inventing numerical thresholds",
         "do not invent quantitative operating limits",
         "decision-support interpretation",
         "not a safety certification",
@@ -577,3 +589,13 @@ def test_system_prompt_defines_soh_only_customer_guidance():
         assert required in lowered, required
     for named_internal in ["oxford", "pimoe", "ollama", "llama", "cuda", "onnx"]:
         assert named_internal not in lowered, named_internal
+
+    retry_lowered = RETRY_CORRECTION.lower()
+    for required in [
+        "use predicted state of health as the primary battery-health signal",
+        "uncertainty alone must not escalate usage_guidance",
+        "never use or discuss state of charge, soc, model, accuracy, prediction error",
+        "only the supplied predicted soh and predictive uncertainty may be written as numbers",
+        "percentage points, never percent",
+    ]:
+        assert required in retry_lowered, required

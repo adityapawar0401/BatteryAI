@@ -40,11 +40,21 @@ Choose exactly one usage_guidance value:
 
 The usage_guidance value is decision-support interpretation, not another numerical prediction and not a safety certification. No authoritative operational thresholds were supplied, so do not invent or cite thresholds.
 
-Interpret predictive uncertainty only as context around the SOH estimate. Describe it qualitatively rather than quoting its number. If quoting it is truly needed, use percentage points, never percent. Only the predicted SOH may be quoted as a percent. Never treat uncertainty as evidence that the prediction system is good or bad.
+The predicted State of Health is the primary battery-health signal. Use predictive uncertainty only to moderate confidence in the State of Health interpretation. Do not automatically escalate the usage_guidance category solely because the uncertainty value is relatively large.
+
+Uncertainty may temper the confidence and caution of the language, monitoring recommendations, and need for a follow-up measurement. By itself, uncertainty does not imply that the battery is unhealthy or that the prediction system is poor. Do not describe uncertainty as prediction error, model accuracy, or a probability that the prediction is wrong.
+
+Never say that uncertainty indicates battery degradation, capacity loss, declining performance, performance fluctuations, or particular usage conditions. It only limits confidence in the SOH interpretation. When the SOH interpretation supports ordinary use, keep normal_use and express uncertainty through cautious wording, routine trend comparison, or a follow-up measurement instead of automatically changing the category. Do not suggest service or replacement because of uncertainty alone.
+
+Without inventing numerical thresholds: a very strong SOH estimate may support ordinary use, routine monitoring, and future trend comparison; a moderately degraded estimate may support closer monitoring, conservative operation, and earlier follow-up; a substantially degraded estimate may support conservative operation, service review, or replacement planning.
+
+Describe predictive uncertainty qualitatively rather than quoting its number. If quoting it is truly needed, use percentage points, never percent. Only the predicted SOH may be quoted as a percent.
 
 Never discuss State of Charge or SOC, prediction-system accuracy or performance, training, datasets, calibration, software versions, algorithms, architecture, checkpoints, providers, infrastructure, implementation, RUL, or Remaining Useful Life.
 
 Do not invent battery measurements that were not supplied. Do not invent quantitative operating limits, charge or discharge percentages, temperature limits, schedules, or follow-up dates. Do not discuss a reference or actual SOH value because none was supplied.
+
+The only numerical values you may write are the supplied predicted SOH and supplied predictive uncertainty. Never invent another percentage, threshold, interval, temperature, measurement, or numerical trigger.
 
 Do not claim that the battery is safe or unsafe. Do not issue safety certification. Do not make an unconditional replacement command from one estimate.
 
@@ -54,10 +64,11 @@ Return only the requested structured JSON. The summary must be one concise non-e
 
 PROMPT_PAYLOAD_FIELDS = frozenset({"predicted_soh_percent", "predictive_uncertainty_pp"})
 
-RETRY_CORRECTION = """Discuss only battery State of Health, practical usage, monitoring, follow-up assessment, service or replacement planning, and predictive uncertainty. Do not discuss State of Charge, prediction-system performance, software, calibration, or implementation details.
+RETRY_CORRECTION = """Use predicted State of Health as the primary battery-health signal. Use predictive uncertainty only to moderate confidence, wording, routine monitoring, or follow-up measurement. Uncertainty alone must not escalate usage_guidance and must not imply degradation, poor battery performance, or poor prediction quality.
+Discuss only State of Health, practical battery usage, monitoring, future health comparison, follow-up assessment, and service or replacement planning when supported by SOH. Never use or discuss State of Charge, SOC, model, accuracy, prediction error, probability of being wrong, software, calibration, datasets, RUL, or implementation details.
 Return exactly one allowed usage_guidance value, one concise summary paragraph, 2 to 4 non-empty actions, and 1 to 3 non-empty cautions.
-Use this safe style if needed: normal use may be reasonable with routine monitoring; compare future health measurements with the current estimate; use repeated measurements and operating context before major service or replacement decisions.
-Only predicted State of Health may be quoted as a percent. Do not quote the uncertainty number or invent numerical operating limits, schedules, or dates.
+Use this safe style if needed: normal use may be reasonable with routine monitoring; compare future health measurements with the current estimate; use operating context before major service or replacement decisions.
+Only the supplied predicted SOH and predictive uncertainty may be written as numbers. If uncertainty is quoted, use percentage points, never percent. Do not invent numerical limits, thresholds, schedules, dates, temperatures, or measurements.
 Do not add other subjects."""
 
 
@@ -114,8 +125,7 @@ class OllamaConfig(StrictModel):
     enabled: bool = True
     base_url: str = "http://127.0.0.1:11434"
     model: Literal["llama3.2:3b"] = OLLAMA_MODEL
-    temperature: float = Field(default=0.0, ge=0, le=0)
-    seed: int = Field(default=123, ge=0, le=2_147_483_647)
+    temperature: float = Field(default=0.2, ge=0, le=0.2)
     num_predict: int = Field(default=300, ge=64, le=512)
     num_ctx: int = Field(default=2048, ge=512, le=4096)
     keep_alive: str = Field(default="5m", min_length=1, max_length=32)
@@ -302,7 +312,6 @@ def load_ollama_config(root: Path) -> OllamaConfig:
         "num_ctx": os.environ.get("BATTERYAI_OLLAMA_NUM_CTX"),
         "num_predict": os.environ.get("BATTERYAI_OLLAMA_NUM_PREDICT"),
         "temperature": os.environ.get("BATTERYAI_OLLAMA_TEMPERATURE"),
-        "seed": os.environ.get("BATTERYAI_OLLAMA_SEED"),
     }
     for key, value in overrides.items():
         if value is not None:
@@ -387,7 +396,7 @@ class OllamaClient:
             "stream": False,
             "format": SuggestionContent.model_json_schema(),
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_message}],
-            "options": {"temperature": self.config.temperature, "seed": self.config.seed, "num_predict": self.config.num_predict, "num_ctx": self.config.num_ctx},
+            "options": {"temperature": self.config.temperature, "num_predict": self.config.num_predict, "num_ctx": self.config.num_ctx},
             "keep_alive": self.config.keep_alive,
         }
         started = time.perf_counter()

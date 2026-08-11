@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PredictionResult } from "../types";
 import { clientErrorMessage, clientSafeSummary, keepClientSafe, INSIGHTS_UNAVAILABLE } from "../clientText";
 import { type LocalLlmCapabilities, type SuggestionProvider } from "./provider";
-import { parseSuggestions, type Suggestions } from "./schema";
+import { parseSuggestions, usageGuidanceLabels, type Suggestions } from "./schema";
 
 export type LocalLlmStatus = "unavailable" | "checking" | "ready" | "generating" | "completed" | "error";
 
@@ -77,7 +77,9 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
       if (resultKey(latestResultRef.current) !== requestedKey) { setStatus("ready"); setMessage("Analysis updated. Generate insights for the latest result."); return; }
       const parsed = parseSuggestions(response.suggestions);
       // Second layer: drop anything that still names an internal component.
-      setSuggestions({ summary: clientSafeSummary(parsed.summary), actions: keepClientSafe(parsed.actions), cautions: keepClientSafe(parsed.cautions) });
+      const clientSuggestions = { ...parsed, summary: clientSafeSummary(parsed.summary), actions: keepClientSafe(parsed.actions), cautions: keepClientSafe(parsed.cautions) };
+      if (clientSuggestions.actions.length < 2 || clientSuggestions.cautions.length < 1) throw new Error("Suggestion output did not retain enough safe guidance.");
+      setSuggestions(clientSuggestions);
       setStatus("completed"); setMessage("Insights completed.");
     } catch (generationError) {
       if (generationError instanceof DOMException && generationError.name === "AbortError") { setStatus("ready"); setMessage("Insight generation cancelled."); return; }
@@ -92,7 +94,7 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
       <p className="eyebrow">Insights</p><h2 id="suggestion-heading">AI Insights</h2>
     </div></div>
     <p className="dash-hint">Insights summarize the completed analysis in plain language. They never change the values above.</p>
-    <p className="dash-notice" role="status"><strong>Insights: {statusLabel[status]}</strong> — {message}</p>
+    <p className="dash-notice" role="status"><strong>Insights: {statusLabel[status]}</strong>: {message}</p>
     {error && <p className="dash-error" role="alert">{error}</p>}
     <div className="dash-actions dash-actions--wrap">
       {paired && ["unavailable", "error"].includes(status) && <button type="button" className="btn btn--secondary" onClick={() => void check()}>Check again</button>}
@@ -100,11 +102,12 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
       {status === "generating" && <button type="button" className="btn btn--secondary" onClick={() => generationAbort.current?.abort()}>Cancel</button>}
     </div>
     {suggestions ? <div className="suggestion-output">
-      <h3>{suggestions.summary}</h3>
+      <h3 className="mono">Usage Guidance</h3><p>{usageGuidanceLabels[suggestions.usage_guidance]}</p>
+      <h3 className="mono">Summary</h3><p>{suggestions.summary}</p>
       {suggestions.actions.length > 0 && <><h4 className="mono">Recommended actions</h4><ul>{suggestions.actions.map((item) => <li key={item}>{item}</li>)}</ul></>}
       {suggestions.cautions.length > 0 && <><h4 className="mono">Considerations</h4><ul>{suggestions.cautions.map((item) => <li key={item}>{item}</li>)}</ul></>}
     </div>
       : <div className="dash-empty">{latestResult ? (capability?.ready ? "Insights are ready to generate for the latest completed analysis." : INSIGHTS_UNAVAILABLE) : "Complete an analysis to generate insights."}</div>}
-    <p className="dash-warning">AI-generated decision support only—not a safety certification. Insights cannot change the analysis results above.</p>
+    <p className="dash-warning">AI-generated decision support only, not a safety certification. Insights cannot change the analysis results above.</p>
   </section>;
 }

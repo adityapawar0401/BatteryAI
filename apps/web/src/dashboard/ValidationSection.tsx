@@ -29,7 +29,6 @@ export function ValidationSection({ summary, errors, validated }: ValidationSect
         <div className="matrix__row"><dt className="mono">Modality</dt><dd>{listOrDash(summary.modalities)}</dd></div>
         <div className="matrix__row"><dt className="mono">Source checkpoint</dt><dd>{listOrDash(summary.sourceCheckpoints)}</dd></div>
         <div className="matrix__row"><dt className="mono">Target checkpoint</dt><dd>{listOrDash(summary.targetCheckpoints)}</dd></div>
-        <div className="matrix__row"><dt className="mono">Reference SOH supplied</dt><dd>{summary.actualSohSupplied ? "Yes" : "No"}</dd></div>
       </dl>}
 
     {errors.length > 0 && <div className="dash-error" role="alert">

@@ -14,7 +14,7 @@ const prediction = (soh: number): PredictionResult => ({
 });
 
 const ready: LocalLlmCapabilities = { provider: "ollama", model: OLLAMA_MODEL, reachable: true, model_installed: true, ready: true, endpoint: "http://127.0.0.1:11434", generation_available: true, reason: null, corrective_command: null, version: "0.30.11" };
-const completed: LocalSuggestionResponse = { provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review complete", actions: ["Inspect", "Monitor"], cautions: ["Decision support only"] }, timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop" };
+const completed: LocalSuggestionResponse = { provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review complete", usage_guidance: "monitor_more_closely", actions: ["Inspect", "Monitor"], cautions: ["Decision support only"] }, timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop" };
 
 class FakeProvider implements SuggestionProvider {
   capability = vi.fn(async () => ready);
@@ -62,6 +62,10 @@ describe("AI insights interaction", () => {
     expect(provider.generate).toHaveBeenCalledWith(expect.objectContaining({ predicted_soh: 88 }), expect.any(AbortSignal));
     await act(async () => resolveGeneration(completed));
     expect(await screen.findByText("Review complete")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Usage Guidance" })).toBeInTheDocument();
+    expect(screen.getByText("Monitor More Closely")).toBeInTheDocument();
+    expect(screen.queryByText("monitor_more_closely")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Summary" })).toBeInTheDocument();
     expect(screen.getByText(/Insights: Completed/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recommended actions" })).toBeInTheDocument();
     expect(screen.getByText("Inspect", { selector: "li" })).toBeInTheDocument();
@@ -90,7 +94,7 @@ describe("AI insights interaction", () => {
   it("does not complete or render empty headings for incomplete responses and remains retryable", async () => {
     const provider = new FakeProvider();
     provider.generate
-      .mockResolvedValueOnce({ ...completed, suggestions: { summary: "Incomplete", actions: [], cautions: ["Uncertain"] } })
+      .mockResolvedValueOnce({ ...completed, suggestions: { summary: "Incomplete", usage_guidance: "normal_use", actions: [], cautions: ["Uncertain"] } })
       .mockResolvedValueOnce(completed);
     render(<><output aria-label="numerical prediction">97.00</output><SuggestionPanel paired latestResult={prediction(97)} provider={provider} /></>);
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
@@ -113,5 +117,21 @@ describe("AI insights interaction", () => {
     expect(alert).toHaveTextContent("AI insights are temporarily unavailable.");
     expect(alert.textContent?.toLowerCase()).not.toContain("llm");
     expect(screen.getByRole("button", { name: "Generate insights" })).toBeEnabled();
+  });
+
+  it("normalizes em dashes in generated insight text before display", async () => {
+    const provider = new FakeProvider();
+    provider.generate.mockResolvedValue({
+      ...completed,
+      suggestions: {
+        ...completed.suggestions,
+        summary: "Normal use is reasonable — continue monitoring.",
+        actions: ["Monitor health — compare later.", "Arrange a future measurement."],
+      },
+    });
+    const { container } = render(<SuggestionPanel paired latestResult={prediction(97)} provider={provider} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
+    await screen.findByText("Normal use is reasonable, continue monitoring.");
+    expect(container.textContent).not.toContain("—");
   });
 });

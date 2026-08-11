@@ -10,7 +10,7 @@ import "../styles/landing.css";
 
 const value = [
   { index: "01", title: "Battery health analysis", body: "Estimate battery state of health from structured charge-cycle data." },
-  { index: "02", title: "Clear results", body: "Review the predicted health value, its uncertainty, and a comparison against a known reference when one is supplied." },
+  { index: "02", title: "Clear results", body: "Review the estimated state of health in a focused customer-facing result." },
   { index: "03", title: "Actionable insights", body: "Turn a completed analysis into concise recommended actions and considerations." },
   { index: "04", title: "Structured workflow", body: "Upload, validate, analyze, and review results in one interface." },
 ];
@@ -19,7 +19,7 @@ const steps = [
   { step: "01", title: "Upload battery data", body: "Bring your own charge-cycle data as a CSV, paste it directly, or start from the example dataset." },
   { step: "02", title: "Validate the dataset", body: "Every row is checked against the expected format before anything is analyzed." },
   { step: "03", title: "Run the analysis", body: "Start the health analysis and follow its progress." },
-  { step: "04", title: "Review results and insights", body: "Read the estimated state of health with its uncertainty, then generate written insights." },
+  { step: "04", title: "Review results and insights", body: "Read the estimated state of health, then generate practical usage guidance." },
 ];
 
 const benefits = [

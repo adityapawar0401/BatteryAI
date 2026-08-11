@@ -112,6 +112,7 @@ def test_suggestion_concurrency_does_not_queue(monkeypatch):
             entered.set(); await asyncio.to_thread(release.wait, 5)
             return SuggestionResponse(suggestions=SuggestionContent(
                 summary="The state of health estimate is ready for review.",
+                usage_guidance="normal_use",
                 actions=["Continue monitoring.", "Compare the next result."],
                 cautions=["Consider predictive uncertainty."],
             ), timing=SuggestionTiming(total_ms=1))

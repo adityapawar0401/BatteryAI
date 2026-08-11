@@ -26,6 +26,7 @@ describe("landing page", () => {
     const { container } = render(<LandingPage />);
     const text = container.textContent ?? "";
     for (const term of internalTerms) expect(text.toLowerCase()).not.toContain(term.toLowerCase());
+    expect(text).not.toContain("—");
   });
 
   it("has no architecture, model-capabilities, or technical-limitations section", () => {

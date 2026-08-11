@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientErrorMessage, clientSafeSummary, containsInternalTerm, genericAnalysisSummary, keepClientSafe } from "./clientText";
+import { clientErrorMessage, clientSafeSummary, containsInternalTerm, genericAnalysisSummary, keepClientSafe, normalizeClientText } from "./clientText";
 
 describe("internal term detection", () => {
   it("flags text that names internal components", () => {
@@ -26,6 +26,8 @@ describe("internal term detection", () => {
       "Repeat the analysis using the next available measurement.",
       "Row 3, voltage_V: expected volts between 0 and 10.",
       "Capacity coordinate against point index.",
+      "Compare a future actual SOH measurement with the current estimate.",
+      "Use measured health and actual measurement trends.",
     ]) expect(containsInternalTerm(value)).toBe(false);
   });
 
@@ -56,6 +58,18 @@ describe("generated output filtering", () => {
   it("keeps a clean summary untouched", () => {
     const summary = "State of health is estimated at 97.42% with moderate uncertainty.";
     expect(clientSafeSummary(summary)).toBe(summary);
+  });
+
+  it("normalizes generated em dashes to plain punctuation", () => {
+    expect(normalizeClientText("Normal use — continue monitoring.")).toBe("Normal use, continue monitoring.");
+    expect(clientSafeSummary("Monitor health—compare later.")).toBe("Monitor health, compare later.");
+    expect(keepClientSafe(["Inspect — then monitor."])).toEqual(["Inspect, then monitor."]);
+  });
+
+  it("normalizes percentage uncertainty to percentage-point semantics", () => {
+    expect(normalizeClientText("Predictive uncertainty is about 8% for this estimate.")).toBe("Predictive uncertainty is about 8 percentage points for this estimate.");
+    expect(normalizeClientText("Predictive uncertainty is ≈8% points.")).toBe("Predictive uncertainty is about 8 percentage points.");
+    expect(normalizeClientText("With moderate uncertainty, State of Health is estimated at 97%.")).toBe("With moderate uncertainty, State of Health is estimated at 97%.");
   });
 });
 

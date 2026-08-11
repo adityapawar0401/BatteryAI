@@ -45,11 +45,8 @@ export function ResultsSection({ connected, busy, rowCount, response, ...props }
             const notes = keepClientSafe(result.warnings);
             return <article className="metric-card" key={result.sequence_id}>
               <p className="metric-card__id mono">{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p>
-              <p className="metric-card__value mono">{result.predicted_soh.toFixed(2)}<span className="metric-card__unit">% predicted state of health</span></p>
+              <p className="metric-card__value mono">{result.predicted_soh.toFixed(2)}<span className="metric-card__unit">% estimated state of health</span></p>
               <dl className="metric-card__facts">
-                <div><dt>Uncertainty</dt><dd>± {result.predictive_std.toFixed(2)} pp</dd></div>
-                {result.actual_soh != null && <div><dt>Reference SOH</dt><dd>{result.actual_soh.toFixed(2)}%</dd></div>}
-                {result.absolute_error != null && <div><dt>Absolute error</dt><dd>{result.absolute_error.toFixed(2)} pp</dd></div>}
                 <div><dt>From</dt><dd>{result.source_checkpoint}</dd></div>
                 <div><dt>To</dt><dd>{result.target_checkpoint}</dd></div>
               </dl>

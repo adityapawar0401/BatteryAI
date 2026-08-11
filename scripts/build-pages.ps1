@@ -27,6 +27,8 @@ try {
     if ($PrivateText) { throw "Private path, token text, or raw dataset name found in static build: $($PrivateText[0].Path)" }
     $FakeText = $Text | Select-String -Pattern 'cdn\.tailwindcss\.com|Transformer-V4|LIVE DATA STREAM|SYSTEMS NOMINAL|Adaptive Charging|Kinetic Energy Intelligence|Request deployment|99\.8\s*%?\s*accuracy|Prediction accuracy'
     if ($FakeText) { throw "CDN script or unsupported marketing claim found in static build: $($FakeText[0].Path)" }
+    $EmDashText = $Text | Select-String -SimpleMatch ([string][char]0x2014)
+    if ($EmDashText) { throw "Customer-facing em dash found in static build: $($EmDashText[0].Path)" }
     # Customer-facing HTML must never carry internal implementation vocabulary.
     # Bundled JS keeps API contract strings, which is required for the app to work.
     $Markup = Get-ChildItem -LiteralPath $Dist -Recurse -File -Filter '*.html'

@@ -33,7 +33,7 @@ export function OverviewSection(props: OverviewSectionProps) {
       : !validated
         ? "Validate your data before running the analysis."
         : !response
-          ? "Everything is ready — run the analysis."
+          ? "Everything is ready. Run the analysis."
           : "Generate insights for this result, or analyze another dataset.";
 
   return <section className="dash-section" id="overview" aria-labelledby="overview-heading">
@@ -60,12 +60,7 @@ export function OverviewSection(props: OverviewSectionProps) {
       <div className="metric-grid">
         <article className="metric-card">
           <p className="metric-card__id mono">{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p>
-          <p className="metric-card__value mono">{result.predicted_soh.toFixed(2)}<span className="metric-card__unit">% predicted state of health</span></p>
-          <dl className="metric-card__facts">
-            <div><dt>Uncertainty</dt><dd>± {result.predictive_std.toFixed(2)} pp</dd></div>
-            {result.actual_soh != null && <div><dt>Reference SOH</dt><dd>{result.actual_soh.toFixed(2)}%</dd></div>}
-            {result.absolute_error != null && <div><dt>Absolute error</dt><dd>{result.absolute_error.toFixed(2)} pp</dd></div>}
-          </dl>
+          <p className="metric-card__value mono">{result.predicted_soh.toFixed(2)}<span className="metric-card__unit">% estimated state of health</span></p>
         </article>
       </div>
     </>}

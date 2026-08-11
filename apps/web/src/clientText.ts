@@ -18,31 +18,43 @@ const internalTerms = [
   "ts.net", "pytorch", "training cell", "training-cell", "webgpu", "wasm",
   "state of charge", "soc", "model", "accuracy", "error rate", "prediction error", "input quality",
   "software", "calibration", "user manual", "training", "dataset", "architecture", "provider",
-  "infrastructure", "implementation", "cpu", "actual soh", "reference soh",
+  "infrastructure", "implementation", "cpu",
 ];
 
 /**
  * Word-boundary matching so ordinary copy such as "curated" or "serial" is never
  * caught. The left boundary also excludes "_" so the canonical column names
- * `source_checkpoint` and `target_checkpoint` — which users need and which stay
- * visible — are not mistaken for internal vocabulary.
+ * `source_checkpoint` and `target_checkpoint`, which users need and which stay
+ * visible, are not mistaken for internal vocabulary.
  */
 const internalPattern = new RegExp(`(?:^|[^a-z0-9_])(?:${internalTerms.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?:[^a-z0-9_]|$)`, "i");
 
 export function containsInternalTerm(value: string): boolean {
-  return internalPattern.test(value);
+  return internalPattern.test(normalizeClientText(value));
 }
 
 /** Keeps only the customer-safe entries of a generated list. */
 export function keepClientSafe(values: string[]): string[] {
-  return values.filter((value) => !containsInternalTerm(value));
+  return values.map(normalizeClientText).filter((value) => !containsInternalTerm(value));
+}
+
+/** Normalizes model-generated punctuation before any text can be rendered. */
+export function normalizeClientText(value: string): string {
+  return value
+    .replace(/\s*\u2014\s*/g, ", ")
+    .replace(/\u2248\s*/g, "about ")
+    .replace(/(\b(?:predictive[\s-]+)?uncertainty\b(?:(?!\b(?:SOH|state[\s-]+of[\s-]+health)\b)[^.!?\r\n]){0,60}?)(\d+(?:\.\d+)?)\s*%/gi, "$1$2 percentage points")
+    .replace(/(\d+(?:\.\d+)?)\s*%(\s+(?:of[\s-]+)?(?:predictive[\s-]+)?uncertainty\b)/gi, "$1 percentage points$2")
+    .replace(/\bpercentage[\s-]+points?[\s-]+points?\b/gi, "percentage points")
+    .trim();
 }
 
 export const genericAnalysisSummary = "The battery health analysis completed successfully. Review the estimated state of health together with its uncertainty.";
 
 /** Replaces a summary that names internal components with an equivalent product-level statement. */
 export function clientSafeSummary(value: string): string {
-  return containsInternalTerm(value) ? genericAnalysisSummary : value;
+  const normalized = normalizeClientText(value);
+  return containsInternalTerm(normalized) ? genericAnalysisSummary : normalized;
 }
 
 const CONNECTION_REQUIRED = "Connect to the analysis service before running an analysis.";
@@ -53,11 +65,11 @@ export const INSIGHTS_UNAVAILABLE = "AI insights are temporarily unavailable.";
 /**
  * Turns a service-layer message into something a customer can act on. Detailed
  * technical failures still reach the service logs unchanged; this only governs
- * what is rendered. Messages that are already customer-safe — notably CSV
- * validation errors, which users need verbatim to fix their file — pass through.
+ * what is rendered. Messages that are already customer-safe, notably CSV
+ * validation errors that users need verbatim to fix their file, pass through.
  */
 export function clientErrorMessage(raw: string): string {
-  const message = raw.trim();
+  const message = normalizeClientText(raw);
   if (!message) return SERVICE_UNAVAILABLE;
   const lower = message.toLowerCase();
 

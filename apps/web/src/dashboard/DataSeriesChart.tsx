@@ -25,7 +25,7 @@ const HEIGHT = 200;
 const PAD = 8;
 
 function format(value: number): string {
-  if (!Number.isFinite(value)) return "—";
+  if (!Number.isFinite(value)) return "Not available";
   if (Math.abs(value) >= 1000) return value.toFixed(0);
   if (Math.abs(value) >= 1) return value.toFixed(2);
   return value.toFixed(4);

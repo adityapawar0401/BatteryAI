@@ -76,6 +76,7 @@ describe("dashboard confidentiality", () => {
     await renderDashboard();
     const text = document.body.textContent ?? "";
     for (const term of internalTerms) expect(text.toLowerCase()).not.toContain(term.toLowerCase());
+    expect(text).not.toContain("—");
   });
 
   it("never renders the service address, deployment mode, or a system-status panel", async () => {
@@ -187,7 +188,7 @@ describe("dashboard data workflow", () => {
     expect(validation.getByText("C1ch")).toBeInTheDocument();
     expect(validation.getByText("cyc0000")).toBeInTheDocument();
     expect(validation.getByText("cyc0100")).toBeInTheDocument();
-    expect(validation.getByText("Reference SOH supplied")).toBeInTheDocument();
+    expect(validation.queryByText("Reference SOH supplied")).not.toBeInTheDocument();
   });
 
   it("surfaces validation errors verbatim so the file can be fixed", async () => {
@@ -215,7 +216,7 @@ describe("dashboard data workflow", () => {
 });
 
 describe("dashboard results", () => {
-  it("renders the unchanged prediction value and uncertainty", async () => {
+  it("emphasizes the unchanged estimated SOH without rendering numerical uncertainty", async () => {
     await renderDashboard(connectedService((url) => url === "http://127.0.0.1:8000/v1/infer"
       ? new Response(JSON.stringify({ fallback_occurred: false, results: [prediction] }))
       : undefined));
@@ -224,13 +225,15 @@ describe("dashboard results", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
     const results = () => within(document.getElementById("results")!);
     await waitFor(() => expect(results().getByText("97.42")).toBeInTheDocument());
-    expect(results().getByText("± 1.83 pp")).toBeInTheDocument();
+    expect(results().getByText("% estimated state of health")).toBeInTheDocument();
+    expect(results().queryByText("Uncertainty")).not.toBeInTheDocument();
+    expect(results().queryByText(/1\.83 pp/)).not.toBeInTheDocument();
     expect(results().getByText("cyc0000")).toBeInTheDocument();
     expect(results().getByText("cyc0100")).toBeInTheDocument();
     expect(results().getAllByText("Completed").length).toBeGreaterThan(0);
   });
 
-  it("shows reference SOH and absolute error only when supplied", async () => {
+  it("never renders reference SOH or absolute error even when supplied", async () => {
     let payload: PredictionResult = prediction;
     await renderDashboard(connectedService((url) => url === "http://127.0.0.1:8000/v1/infer"
       ? new Response(JSON.stringify({ fallback_occurred: false, results: [payload] }))
@@ -245,9 +248,13 @@ describe("dashboard results", () => {
 
     payload = { ...prediction, actual_soh: 96.1, absolute_error: 1.32 };
     fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    await waitFor(() => expect(results().getByText("Reference SOH")).toBeInTheDocument());
-    expect(results().getByText("96.10%")).toBeInTheDocument();
-    expect(results().getByText("1.32 pp")).toBeInTheDocument();
+    expect(results().getByText(/Analyzing your battery data/)).toBeInTheDocument();
+    await waitFor(() => expect(results().queryByText(/Analyzing your battery data/)).not.toBeInTheDocument());
+    expect(results().queryByText("Reference SOH")).not.toBeInTheDocument();
+    expect(results().queryByText("Absolute error")).not.toBeInTheDocument();
+    expect(results().queryByText("96.10%")).not.toBeInTheDocument();
+    expect(results().queryByText("1.32 pp")).not.toBeInTheDocument();
+    expect(results().getByText("97.42")).toBeInTheDocument();
   });
 
   it("reports an unavailable service in customer language", async () => {
@@ -264,8 +271,8 @@ describe("dashboard results", () => {
 });
 
 describe("dashboard insights", () => {
-  const insights = (summary: string, actions: string[], cautions: string[]) => new Response(JSON.stringify({
-    provider: "ollama", model: "llama3.2:3b", suggestions: { summary, actions, cautions },
+  const insights = (summary: string, actions: string[], cautions: string[], usage_guidance = "normal_use") => new Response(JSON.stringify({
+    provider: "ollama", model: "llama3.2:3b", suggestions: { summary, usage_guidance, actions, cautions },
     timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop",
   }));
 
@@ -290,6 +297,10 @@ describe("dashboard insights", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
     const panel = () => within(document.getElementById("insights")!);
     await waitFor(() => expect(panel().getByText("State of health is estimated at 97.42% with moderate uncertainty.")).toBeInTheDocument());
+    expect(panel().getByRole("heading", { name: "Usage Guidance" })).toBeInTheDocument();
+    expect(panel().getByText("Normal Use")).toBeInTheDocument();
+    expect(panel().queryByText("normal_use")).not.toBeInTheDocument();
+    expect(panel().getByRole("heading", { name: "Summary" })).toBeInTheDocument();
     expect(panel().getByRole("heading", { name: "Recommended actions" })).toBeInTheDocument();
     expect(panel().getByRole("heading", { name: "Considerations" })).toBeInTheDocument();
     const text = document.getElementById("insights")!.textContent ?? "";
@@ -314,7 +325,7 @@ describe("dashboard insights", () => {
     expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument();
   });
 
-  it("renders no empty action or consideration heading", async () => {
+  it("renders a safe error rather than incomplete guidance after defensive filtering", async () => {
     await runAnalysisThen(() => insights(
       "State of health is estimated at 97.42%.",
       ["Model limitations: RUL unavailable.", "Review the software calibration."],
@@ -322,8 +333,9 @@ describe("dashboard insights", () => {
     ));
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
     const panel = () => within(document.getElementById("insights")!);
-    await waitFor(() => expect(panel().getByRole("heading", { name: "Considerations" })).toBeInTheDocument());
+    expect(await panel().findByRole("alert")).toHaveTextContent("AI insights are temporarily unavailable.");
     expect(panel().queryByRole("heading", { name: "Recommended actions" })).not.toBeInTheDocument();
+    expect(panel().queryByRole("heading", { name: "Considerations" })).not.toBeInTheDocument();
   });
 
   it("keeps the retry path for incomplete generated output", async () => {

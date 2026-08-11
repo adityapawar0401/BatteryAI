@@ -31,9 +31,9 @@ describe("dataset summary", () => {
     expect(summary?.modalities).toEqual(["C1ch"]);
   });
 
-  it("renders an em dash rather than an empty list", () => {
-    expect(listOrDash([])).toBe("—");
-    expect(listOrDash(undefined)).toBe("—");
+  it("renders plain fallback text rather than an empty list", () => {
+    expect(listOrDash([])).toBe("Not available");
+    expect(listOrDash(undefined)).toBe("Not available");
     expect(listOrDash(["C1ch", "OCVch"])).toBe("C1ch, OCVch");
   });
 });

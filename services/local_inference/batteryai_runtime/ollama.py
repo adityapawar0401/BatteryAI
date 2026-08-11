@@ -11,57 +11,53 @@ from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 
 OLLAMA_MODEL = "llama3.2:3b"
 OLLAMA_PULL_COMMAND = f"ollama pull {OLLAMA_MODEL}"
-SYSTEM_PROMPT = """You are a battery-health decision-support assistant.
+SYSTEM_PROMPT = """You are a battery-health usage advisor.
 
 You receive only:
-1. a predicted State of Health percentage;
-2. the predictive uncertainty in percentage points.
+1. predicted battery State of Health in percent;
+2. predictive uncertainty in percentage points.
 
-Provide concise customer-facing interpretation and practical follow-up suggestions based only on those values.
-
-State of Health means SOH.
-
-Do not discuss State of Charge or SOC.
-
-Do not evaluate, criticize, rank, diagnose, or speculate about the prediction model.
-
-Do not mention model accuracy, model performance, training, calibration, software versions, datasets, architecture, checkpoints, providers, infrastructure, input quality, bias, or implementation details.
-
-Do not invent battery measurements that were not supplied.
-
-Do not estimate RUL.
-
-Do not claim safety certification.
-
-Do not claim that maintenance is mandatory based on the prediction alone.
+Translate the health estimate into concise, practical battery-usage guidance.
 
 Focus on:
-- what the predicted SOH means operationally;
-- whether continued monitoring would be appropriate;
-- whether closer inspection or follow-up measurement may be sensible;
-- how the stated predictive uncertainty should affect interpretation.
+- whether normal use appears reasonable;
+- whether more conservative use may be appropriate;
+- whether monitoring should become more frequent;
+- whether a follow-up health assessment should be considered;
+- whether service or replacement planning may be worth considering;
+- what practical actions the user can take next.
 
-Treat predictive uncertainty as uncertainty around the estimate, not evidence that the model is good or bad.
+Choose exactly one usage_guidance value:
+- normal_use: ordinary usage with routine monitoring;
+- monitor_more_closely: continued use with closer health monitoring;
+- conservative_use: more conservative operation and more frequent follow-up;
+- service_or_replacement_review: service or replacement planning and review.
 
-Use calm, practical language.
+The usage_guidance value is decision-support interpretation, not another numerical prediction and not a safety certification. No authoritative operational thresholds were supplied, so do not invent or cite thresholds.
 
-Write every sentence directly about battery SOH, predictive uncertainty, monitoring, follow-up measurement, inspection, operating context, or planning. Do not add disclaimers about excluded topics.
+Interpret predictive uncertainty only as context around the SOH estimate. Describe it qualitatively rather than quoting its number. If quoting it is truly needed, use percentage points, never percent. Only the predicted SOH may be quoted as a percent. Never treat uncertainty as evidence that the prediction system is good or bad.
+
+Never discuss State of Charge or SOC, prediction-system accuracy or performance, training, datasets, calibration, software versions, algorithms, architecture, checkpoints, providers, infrastructure, implementation, RUL, or Remaining Useful Life.
+
+Do not invent battery measurements that were not supplied. Do not invent quantitative operating limits, charge or discharge percentages, temperature limits, schedules, or follow-up dates. Do not discuss a reference or actual SOH value because none was supplied.
+
+Do not claim that the battery is safe or unsafe. Do not issue safety certification. Do not make an unconditional replacement command from one estimate.
+
+Use calm customer-facing language such as normal use is reasonable, continue routine monitoring, use more conservatively, increase monitoring frequency, arrange a follow-up assessment, consider service planning, or consider replacement planning.
 
 Return only the requested structured JSON. The summary must be one concise non-empty paragraph. Provide 2 to 4 non-empty actions and 1 to 3 non-empty cautions."""
 
 PROMPT_PAYLOAD_FIELDS = frozenset({"predicted_soh_percent", "predictive_uncertainty_pp"})
 
-RETRY_CORRECTION = """Discuss only State of Health and its predictive uncertainty. Do not discuss State of Charge, model performance, input quality, software, calibration, or implementation details.
-Rewrite from scratch using only battery-health interpretation, monitoring, follow-up measurement, inspection, operating context, and planning. Return one concise non-empty summary paragraph, 2 to 4 non-empty actions, and 1 to 3 non-empty cautions.
-If unsure, stay within this safe writing pattern:
-- Summary: The estimated battery State of Health should be interpreted together with its stated predictive uncertainty.
-- Actions: Continue monitoring State of Health as new measurements become available. Compare the next analysis with the current result to identify any trend.
-- Caution: Use repeated measurements and operating context before making major maintenance decisions.
+RETRY_CORRECTION = """Discuss only battery State of Health, practical usage, monitoring, follow-up assessment, service or replacement planning, and predictive uncertainty. Do not discuss State of Charge, prediction-system performance, software, calibration, or implementation details.
+Return exactly one allowed usage_guidance value, one concise summary paragraph, 2 to 4 non-empty actions, and 1 to 3 non-empty cautions.
+Use this safe style if needed: normal use may be reasonable with routine monitoring; compare future health measurements with the current estimate; use repeated measurements and operating context before major service or replacement decisions.
+Only predicted State of Health may be quoted as a percent. Do not quote the uncertainty number or invent numerical operating limits, schedules, or dates.
 Do not add other subjects."""
 
 
@@ -81,6 +77,7 @@ FORBIDDEN_OUTPUT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("user manual", r"\buser[\s-]+manual\b"),
         ("training", r"\btraining\b"),
         ("dataset", r"\bdatasets?\b"),
+        ("algorithm", r"\balgorithms?\b"),
         ("architecture", r"\barchitectures?\b"),
         ("checkpoint", r"\bcheckpoints?\b"),
         ("provider", r"\bproviders?\b"),
@@ -91,17 +88,19 @@ FORBIDDEN_OUTPUT_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
         ("host computer", r"\bhost[\s-]+computers?\b"),
         ("deployment", r"\bdeployments?\b"),
         ("remaining useful life", r"\bremaining[\s-]+useful[\s-]+life\b"),
-        ("end of life", r"\bend[\s-]+of[\s-]+life\b"),
         ("RUL", r"\bRUL\b"),
         ("Ollama", r"\bOllama\b"),
         ("PIMoE", r"\b(?:Battery[\s-]*)?PIMoE\b"),
         ("Oxford", r"\bOxford\b"),
         ("CUDA", r"\bCUDA\b"),
         ("CPU", r"\bCPU\b"),
-        ("actual SOH", r"\bactual[\s-]+SOH\b"),
-        ("reference SOH", r"\breference[\s-]+SOH\b"),
-        ("estimate reliability", r"\breliable[\s-]+(?:prediction|estimate|result|analysis)\b|\b(?:prediction|estimate|result|analysis)[\s-]+is[\s-]+reliable\b"),
+        ("Tailscale", r"\bTailscale\b"),
+        ("Funnel", r"\bFunnel\b"),
+        ("percentage uncertainty", r"\b(?:predictive[\s-]+)?uncertainty\b(?:(?!\b(?:SOH|state[\s-]+of[\s-]+health)\b)[^.!?\r\n]){0,60}\d+(?:\.\d+)?\s*%|\b\d+(?:\.\d+)?\s*%\s+(?:of[\s-]+)?(?:predictive[\s-]+)?uncertainty\b"),
+        ("invented quantitative advice", r"\b(?:in|within|every|after)[\s-]+(?:(?:about|approximately|roughly)[\s-]+)?\d+(?:\.\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?[\s-]*(?:hours?|days?|weeks?|months?|years?)\b|(?:\b(?:above|below|under|over)[\s-]+|[<>]=?\s*)-?\d+(?:\.\d+)?\s*°?\s*[CFK]\b|\b(?:charg(?:e|ed|ing)|discharg(?:e|ed|ing)|usage[\s-]+frequency)\b[^.!?\r\n]{0,80}\d+(?:\.\d+)?(?:\s*[-–]\s*\d+(?:\.\d+)?)?\s*%"),
+        ("safety claim", r"\b(?:battery|it)[\s-]+(?:is|appears|seems)[\s-]+(?:safe|unsafe)\b"),
         ("mandatory maintenance", r"\bmaintenance[\s-]+is[\s-]+(?:mandatory|required|necessary)\b|\bmust\b[^.!?]{0,80}\bmaintenance\b|\bmaintenance\b[^.!?]{0,80}\bmust\b"),
+        ("mandatory replacement", r"\bmust[\s-]+be[\s-]+replaced\b|\breplace[\s-]+(?:the[\s-]+battery[\s-]+)?immediately\b|\breplacement[\s-]+is[\s-]+(?:mandatory|required|necessary)\b"),
     )
 )
 
@@ -115,7 +114,8 @@ class OllamaConfig(StrictModel):
     enabled: bool = True
     base_url: str = "http://127.0.0.1:11434"
     model: Literal["llama3.2:3b"] = OLLAMA_MODEL
-    temperature: float = Field(default=0.1, ge=0, le=0.3)
+    temperature: float = Field(default=0.0, ge=0, le=0)
+    seed: int = Field(default=123, ge=0, le=2_147_483_647)
     num_predict: int = Field(default=300, ge=64, le=512)
     num_ctx: int = Field(default=2048, ge=512, le=4096)
     keep_alive: str = Field(default="5m", min_length=1, max_length=32)
@@ -142,6 +142,29 @@ class OllamaConfig(StrictModel):
 
 
 BoundedText = Annotated[str, Field(min_length=1, max_length=500)]
+
+# No authoritative operational SOH thresholds exist in project configuration.
+# This enum is customer-facing decision support selected from the two-field LLM
+# input, not another numerical prediction or a safety classification.
+UsageGuidance = Literal["normal_use", "monitor_more_closely", "conservative_use", "service_or_replacement_review"]
+
+
+def _normalize_generated_text(value: str) -> str:
+    normalized = re.sub(r"\s*\u2014\s*", ", ", value).strip()
+    normalized = re.sub(r"\u2248\s*", "about ", normalized)
+    normalized = re.sub(
+        r"(\b(?:predictive[\s-]+)?uncertainty\b(?:(?!\b(?:SOH|state[\s-]+of[\s-]+health)\b)[^.!?\r\n]){0,60}?)(\d+(?:\.\d+)?)\s*%",
+        r"\1\2 percentage points",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    normalized = re.sub(
+        r"(\d+(?:\.\d+)?)\s*%(\s+(?:of[\s-]+)?(?:predictive[\s-]+)?uncertainty\b)",
+        r"\1 percentage points\2",
+        normalized,
+        flags=re.IGNORECASE,
+    )
+    return re.sub(r"\bpercentage[\s-]+points?[\s-]+points?\b", "percentage points", normalized, flags=re.IGNORECASE)
 
 
 class SuggestionSummary(StrictModel):
@@ -171,6 +194,9 @@ class SuggestionContent(StrictModel):
         max_length=1000,
         description="One calm customer-facing paragraph interpreting only the battery's predicted State of Health and predictive uncertainty.",
     )
+    usage_guidance: UsageGuidance = Field(
+        description="Decision-support usage category selected from SOH and predictive uncertainty without fixed thresholds.",
+    )
     actions: list[BoundedText] = Field(
         min_length=2,
         max_length=4,
@@ -187,7 +213,7 @@ class SuggestionContent(StrictModel):
     def trim_nonempty_summary(cls, value: object) -> str:
         if not isinstance(value, str):
             raise ValueError("summary must be a string")
-        trimmed = value.strip()
+        trimmed = _normalize_generated_text(value)
         if not trimmed:
             raise ValueError("summary must not be blank")
         return trimmed
@@ -201,7 +227,7 @@ class SuggestionContent(StrictModel):
         for item in value:
             if not isinstance(item, str):
                 raise ValueError("suggestion items must be strings")
-            normalized = item.strip()
+            normalized = _normalize_generated_text(item)
             if not normalized:
                 raise ValueError("suggestion items must not be blank")
             trimmed.append(normalized)
@@ -222,15 +248,6 @@ class SuggestionContent(StrictModel):
         if any("<" in value or ">" in value for value in values):
             raise ValueError("generated HTML is not allowed")
         return values
-
-    @model_validator(mode="after")
-    def reject_unsupported_subjects(self) -> "SuggestionContent":
-        generated_text = "\n".join((self.summary, *self.actions, *self.cautions))
-        for label, pattern in FORBIDDEN_OUTPUT_PATTERNS:
-            if pattern.search(generated_text):
-                raise ValueError(f"unsupported generated subject: {label}")
-        return self
-
 
 class OllamaCapabilities(StrictModel):
     provider: Literal["ollama"] = "ollama"
@@ -270,6 +287,10 @@ class SuggestionServiceError(RuntimeError):
         self.details = details
 
 
+class SuggestionContentError(ValueError):
+    pass
+
+
 def load_ollama_config(root: Path) -> OllamaConfig:
     data = json.loads((root / "configs" / "ollama.json").read_text(encoding="utf-8"))
     overrides = {
@@ -281,6 +302,7 @@ def load_ollama_config(root: Path) -> OllamaConfig:
         "num_ctx": os.environ.get("BATTERYAI_OLLAMA_NUM_CTX"),
         "num_predict": os.environ.get("BATTERYAI_OLLAMA_NUM_PREDICT"),
         "temperature": os.environ.get("BATTERYAI_OLLAMA_TEMPERATURE"),
+        "seed": os.environ.get("BATTERYAI_OLLAMA_SEED"),
     }
     for key, value in overrides.items():
         if value is not None:
@@ -365,7 +387,7 @@ class OllamaClient:
             "stream": False,
             "format": SuggestionContent.model_json_schema(),
             "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_message}],
-            "options": {"temperature": self.config.temperature, "num_predict": self.config.num_predict, "num_ctx": self.config.num_ctx},
+            "options": {"temperature": self.config.temperature, "seed": self.config.seed, "num_predict": self.config.num_predict, "num_ctx": self.config.num_ctx},
             "keep_alive": self.config.keep_alive,
         }
         started = time.perf_counter()
@@ -373,7 +395,7 @@ class OllamaClient:
             data = await self._json("POST", "/api/chat", json=request)
             try:
                 suggestions = _parse_suggestion_content(data)
-            except ValidationError:
+            except (ValidationError, SuggestionContentError):
                 retry_request = {
                     **request,
                     "messages": [*request["messages"], {"role": "system", "content": RETRY_CORRECTION}],
@@ -381,7 +403,7 @@ class OllamaClient:
                 data = await self._json("POST", "/api/chat", json=retry_request)
                 try:
                     suggestions = _parse_suggestion_content(data)
-                except ValidationError as error:
+                except (ValidationError, SuggestionContentError) as error:
                     raise SuggestionServiceError("incomplete_suggestions", "The local LLM returned incomplete structured suggestions.", 502) from error
         total_ms = (time.perf_counter() - started) * 1000
         return SuggestionResponse(
@@ -414,7 +436,28 @@ def _parse_suggestion_content(data: dict) -> SuggestionContent:
         parsed = json.loads(content)
     except json.JSONDecodeError as error:
         raise SuggestionServiceError("ollama_response_invalid", "Ollama assistant content was not valid JSON.", 502) from error
-    return SuggestionContent.model_validate(parsed)
+    draft = SuggestionContent.model_validate(parsed)
+    summary_issue = _unsupported_subject(draft.summary)
+    if summary_issue is not None:
+        raise SuggestionContentError(f"unsupported generated summary subject: {summary_issue}")
+
+    actions = [item for item in draft.actions if _unsupported_subject(item) is None]
+    cautions = [item for item in draft.cautions if _unsupported_subject(item) is None]
+    if len(actions) < 2 or len(cautions) < 1:
+        raise SuggestionContentError("generated suggestions did not retain the minimum usable items")
+    return SuggestionContent.model_validate({
+        "summary": draft.summary,
+        "usage_guidance": draft.usage_guidance,
+        "actions": actions,
+        "cautions": cautions,
+    })
+
+
+def _unsupported_subject(value: str) -> str | None:
+    for label, pattern in FORBIDDEN_OUTPUT_PATTERNS:
+        if pattern.search(value):
+            return label
+    return None
 
 def _duration_ms(value: object) -> float | None:
     return float(value) / 1_000_000 if isinstance(value, (int, float)) and value >= 0 else None

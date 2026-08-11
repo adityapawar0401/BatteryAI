@@ -27,5 +27,5 @@ export function summarizeRows(rows: CurveRow[]): DatasetSummary | null {
 }
 
 export function listOrDash(values: string[] | undefined): string {
-  return values && values.length ? values.join(", ") : "—";
+  return values && values.length ? values.join(", ") : "Not available";
 }

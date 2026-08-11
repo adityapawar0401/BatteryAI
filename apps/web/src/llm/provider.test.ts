@@ -27,7 +27,7 @@ describe("paired local Ollama suggestion provider", () => {
   });
 
   it("sends only the latest bounded summary and validates the response", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review", actions: ["Inspect"], cautions: ["Uncertain"] }, timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop" }), { status: 200 }));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review", actions: ["Inspect", "Monitor"], cautions: ["Uncertain"] }, timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop" }), { status: 200 }));
     const latest = result(88);
     const response = await new LocalOllamaSuggestionProvider("http://localhost:8000", "secret").generate(latest);
     const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
@@ -45,7 +45,8 @@ describe("paired local Ollama suggestion provider", () => {
   it("rejects successful-looking responses with empty actions or cautions", async () => {
     for (const suggestions of [
       { summary: "Review", actions: [], cautions: ["Uncertain"] },
-      { summary: "Review", actions: ["Inspect"], cautions: [] },
+      { summary: "Review", actions: ["Inspect"], cautions: ["Uncertain"] },
+      { summary: "Review", actions: ["Inspect", "Monitor"], cautions: [] },
     ]) {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({ provider: "ollama", model: OLLAMA_MODEL, suggestions, timing: { total_ms: 1 }, done_reason: "stop" }), { status: 200 }));
       await expect(new LocalOllamaSuggestionProvider("http://127.0.0.1:8000", "secret").generate(result(90))).rejects.toThrow(/safe display schema/);
@@ -58,9 +59,9 @@ describe("paired local Ollama suggestion provider", () => {
   });
 
   it("applies the identical response contract through the configured remote origin", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review", actions: ["Inspect"], cautions: ["Uncertain"] }, timing: { total_ms: 1, ollama_total_ms: 1, load_ms: 0, prompt_eval_count: 1, eval_count: 1 }, done_reason: "stop" }), { status: 200 }));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review", actions: ["Inspect", "Monitor"], cautions: ["Uncertain"] }, timing: { total_ms: 1, ollama_total_ms: 1, load_ms: 0, prompt_eval_count: 1, eval_count: 1 }, done_reason: "stop" }), { status: 200 }));
     const response = await new LocalOllamaSuggestionProvider("https://battery.example.ts.net", "secret", "https://battery.example.ts.net").generate(result(90));
     expect(fetchMock.mock.calls[0][0]).toBe("https://battery.example.ts.net/v1/suggestions");
-    expect(response.suggestions.actions).toEqual(["Inspect"]);
+    expect(response.suggestions.actions).toEqual(["Inspect", "Monitor"]);
   });
 });

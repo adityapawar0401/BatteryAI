@@ -12,6 +12,9 @@ describe("internal term detection", () => {
       "Served from GitHub Pages",
       "The remote backend is unreachable",
       "Final-training-cell examples are software fixtures",
+      "Check State of Charge before continuing.",
+      "The prediction model accuracy may be low.",
+      "Review the software version and calibration history.",
     ]) expect(containsInternalTerm(value)).toBe(true);
   });
 
@@ -27,7 +30,7 @@ describe("internal term detection", () => {
   });
 
   it("does not match internal terms inside unrelated words", () => {
-    for (const value of ["The curated dataset is ready.", "Serial numbers were recorded.", "A gradual decline was observed."]) {
+    for (const value of ["The curated report is ready.", "Serial numbers were recorded.", "A gradual decline was observed."]) {
       expect(containsInternalTerm(value)).toBe(false);
     }
   });

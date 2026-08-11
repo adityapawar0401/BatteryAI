@@ -14,7 +14,7 @@ const prediction = (soh: number): PredictionResult => ({
 });
 
 const ready: LocalLlmCapabilities = { provider: "ollama", model: OLLAMA_MODEL, reachable: true, model_installed: true, ready: true, endpoint: "http://127.0.0.1:11434", generation_available: true, reason: null, corrective_command: null, version: "0.30.11" };
-const completed: LocalSuggestionResponse = { provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review complete", actions: ["Inspect"], cautions: ["Decision support only"] }, timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop" };
+const completed: LocalSuggestionResponse = { provider: "ollama", model: OLLAMA_MODEL, suggestions: { summary: "Review complete", actions: ["Inspect", "Monitor"], cautions: ["Decision support only"] }, timing: { total_ms: 12, ollama_total_ms: 10, load_ms: 0, prompt_eval_count: 20, eval_count: 10 }, done_reason: "stop" };
 
 class FakeProvider implements SuggestionProvider {
   capability = vi.fn(async () => ready);
@@ -65,6 +65,7 @@ describe("AI insights interaction", () => {
     expect(screen.getByText(/Insights: Completed/)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Recommended actions" })).toBeInTheDocument();
     expect(screen.getByText("Inspect", { selector: "li" })).toBeInTheDocument();
+    expect(screen.getByText("Monitor", { selector: "li" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Considerations" })).toBeInTheDocument();
     expect(screen.getByText("Decision support only", { selector: "li" })).toBeInTheDocument();
     expect(screen.getByLabelText("numerical prediction")).toHaveTextContent("88.00");

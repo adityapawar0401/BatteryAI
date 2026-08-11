@@ -123,7 +123,7 @@ export function DataInputSection(props: DataInputSectionProps) {
       </dl>
     </details>
 
-    <div className="dash-subhead"><h3 className="mono">Charge-cycle data</h3>
+    <div className="dash-subhead"><h3 className="mono">Input Data Preview</h3>
       {sequences.length > 1 && <div className="field field--inline">
         <label className="field__label" htmlFor="chart-sequence">Sequence</label>
         <select id="chart-sequence" value={activeSequence} onChange={(event) => setChartSequence(event.target.value)}>

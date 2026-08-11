@@ -172,6 +172,7 @@ describe("dashboard data workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Validate data" }));
     await waitFor(() => expect(dataNotice()).toHaveTextContent("3,510 rows passed validation"));
     expect(within(document.getElementById("validation")!).getByText("Validation passed")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Input Data Preview" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Voltage against point index\. 3,510 supplied points/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Capacity coordinate against point index/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Temperature against point index/ })).toBeInTheDocument();
@@ -283,7 +284,7 @@ describe("dashboard insights", () => {
   it("renders insights without naming any provider or model", async () => {
     await runAnalysisThen(() => insights(
       "State of health is estimated at 97.42% with moderate uncertainty.",
-      ["Review the estimate against expected operating behavior."],
+      ["Review the estimate against expected operating behavior.", "Compare the next result with this estimate."],
       ["Interpret the estimate alongside its uncertainty."],
     ));
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
@@ -296,19 +297,19 @@ describe("dashboard insights", () => {
     expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument();
   });
 
-  it("removes internal terms that a generated response still contains", async () => {
+  it("does not render SOC, model-quality, or internal commentary from a generated response", async () => {
     await runAnalysisThen(() => insights(
-      "Battery prediction data for Oxford-v1 model",
-      ["Model limitations: RUL unavailable.", "Repeat the analysis at the next measurement."],
-      ["Interpret the estimate alongside its uncertainty.", "The Battery-PIMoE checkpoint is approximate."],
+      "Check State of Charge because the prediction model accuracy may be low.",
+      ["Review software calibration history.", "Repeat the health measurement later.", "Compare the next result with this estimate."],
+      ["Interpret the estimate alongside its uncertainty.", "The Battery-PIMoE checkpoint has a high error rate."],
     ));
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
     const panel = () => within(document.getElementById("insights")!);
-    await waitFor(() => expect(panel().getByText("Repeat the analysis at the next measurement.")).toBeInTheDocument());
+    await waitFor(() => expect(panel().getByText("Repeat the health measurement later.")).toBeInTheDocument());
     const text = document.getElementById("insights")!.textContent ?? "";
-    for (const term of ["Oxford", "PIMoE", "RUL", "checkpoint"]) expect(text.toLowerCase()).not.toContain(term.toLowerCase());
+    for (const term of ["SOC", "State of Charge", "model accuracy", "software", "calibration", "PIMoE", "checkpoint", "error rate"]) expect(text.toLowerCase()).not.toContain(term.toLowerCase());
     expect(panel().getByText("Interpret the estimate alongside its uncertainty.")).toBeInTheDocument();
-    expect(panel().queryByText(/Model limitations/)).not.toBeInTheDocument();
+    expect(panel().getByText("Repeat the health measurement later.")).toBeInTheDocument();
     // The numerical result is untouched by insight filtering.
     expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument();
   });
@@ -316,7 +317,7 @@ describe("dashboard insights", () => {
   it("renders no empty action or consideration heading", async () => {
     await runAnalysisThen(() => insights(
       "State of health is estimated at 97.42%.",
-      ["Model limitations: RUL unavailable."],
+      ["Model limitations: RUL unavailable.", "Review the software calibration."],
       ["Interpret the estimate alongside its uncertainty."],
     ));
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
@@ -331,7 +332,7 @@ describe("dashboard insights", () => {
       call += 1;
       return call === 1
         ? insights("Incomplete", [], ["Uncertain"])
-        : insights("State of health is estimated at 97.42%.", ["Repeat the analysis at the next measurement."], ["Interpret the estimate alongside its uncertainty."]);
+        : insights("State of health is estimated at 97.42%.", ["Repeat the analysis at the next measurement.", "Compare the next result with this estimate."], ["Interpret the estimate alongside its uncertainty."]);
     });
     fireEvent.click(await screen.findByRole("button", { name: "Generate insights" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("AI insights are temporarily unavailable.");

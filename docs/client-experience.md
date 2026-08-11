@@ -24,8 +24,8 @@ None of this is removed from the system — only from the screen. The backend co
 
 ## How confidentiality is enforced
 
-1. **Prompt payload** — `ollama.py` sends only `predicted_soh`, `predictive_std`, `actual_soh`, `absolute_error` and `input_quality` to the model. Internal identifiers in `SuggestionSummary` never enter the prompt, so they cannot be echoed back. The HTTP contract, strict validation, structured-output schema and bounded retry are unchanged.
-2. **System prompt** — forbids naming any model, provider, dataset, checkpoint, component, device, deployment or unavailable feature, without seeding internal vocabulary into the instruction.
+1. **Prompt payload** — `ollama.py` sends only `predicted_soh_percent` and `predictive_uncertainty_pp` to the model. Reference values, observed error, input-quality notes and internal identifiers in `SuggestionSummary` never enter the prompt. The HTTP contract and bounded retry are unchanged.
+2. **System prompt and validation** — constrain generation to State of Health interpretation, reject unsupported SOC and model/infrastructure commentary, and require one summary, 2 to 4 actions and 1 to 3 considerations.
 3. **Frontend guard** — `src/clientText.ts` drops any generated entry that still carries an internal term, replaces a leaking summary with a product-level statement, and translates service errors for display. It never touches numbers, validation or the contracts.
 4. **Build scan** — `scripts/build-pages.ps1` and the Pages workflow fail the build if an internal term appears in rendered markup. Bundled JavaScript may still contain API contract strings; the requirement is that they never reach the rendered experience.
 

@@ -16,6 +16,9 @@ const internalTerms = [
   "model profile", "rul", "remaining useful life", "next-observed-checkpoint", "next observed checkpoint",
   "loopback", "local llm", "remote backend", "host computer", "inference provider", "browser ml",
   "ts.net", "pytorch", "training cell", "training-cell", "webgpu", "wasm",
+  "state of charge", "soc", "model", "accuracy", "error rate", "prediction error", "input quality",
+  "software", "calibration", "user manual", "training", "dataset", "architecture", "provider",
+  "infrastructure", "implementation", "cpu", "actual soh", "reference soh",
 ];
 
 /**

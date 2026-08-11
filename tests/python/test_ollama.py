@@ -13,6 +13,9 @@ from services.local_inference import app as app_module
 from services.local_inference.batteryai_runtime.ollama import (
     OLLAMA_MODEL,
     OLLAMA_PULL_COMMAND,
+    PROMPT_PAYLOAD_FIELDS,
+    RETRY_CORRECTION,
+    SYSTEM_PROMPT,
     OllamaCapabilities,
     OllamaClient,
     OllamaConfig,
@@ -116,19 +119,28 @@ def test_successful_structured_completion_is_bounded_and_preserves_input_numbers
         if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
         captured.update(json.loads(request.content))
         return httpx.Response(200, json={
-            "message": {"role": "assistant", "content": json.dumps({"summary": "Review uncertainty.", "actions": ["Inspect trends"], "cautions": ["Decision support only"]})},
+            "message": {"role": "assistant", "content": json.dumps({
+                "summary": "The estimated battery state of health remains relatively strong.",
+                "actions": ["Continue monitoring state of health.", "Compare the next result with this estimate."],
+                "cautions": ["Interpret the estimate together with its predictive uncertainty."],
+            })},
             "total_duration": 2_000_000, "load_duration": 1_000_000, "prompt_eval_count": 40, "eval_count": 20, "done_reason": "stop",
         })
 
     source = summary()
     response = run(client_for(handler).generate(source))
-    assert response.suggestions.summary == "Review uncertainty."
+    assert response.suggestions.summary == "The estimated battery state of health remains relatively strong."
     assert captured["model"] == OLLAMA_MODEL and captured["stream"] is False and "format" in captured
     assert captured["options"] == {"temperature": 0.1, "num_predict": 300, "num_ctx": 2048}
     assert "tools" not in captured and "images" not in captured
     user_data = captured["messages"][1]["content"]
     assert "BEGIN BATTERYAI_PREDICTION_DATA" in user_data
-    assert str(source.predicted_soh) in user_data
+    serialized_payload = user_data.split("\n")[1]
+    assert json.loads(serialized_payload) == {
+        "predicted_soh_percent": source.predicted_soh,
+        "predictive_uncertainty_pp": source.predictive_std,
+    }
+    assert frozenset(json.loads(serialized_payload)) == PROMPT_PAYLOAD_FIELDS
     assert source.predicted_soh == 97.06190490722656
     assert "predicted_soh" not in response.suggestions.model_dump()
     assert response.timing.ollama_total_ms == 2.0
@@ -138,8 +150,11 @@ def test_successful_structured_completion_is_bounded_and_preserves_input_numbers
     "content",
     [
         {"summary": "Review", "actions": [], "cautions": ["Uncertain"]},
+        {"summary": "Review", "actions": ["Inspect"], "cautions": ["Uncertain"]},
         {"summary": "Review", "actions": ["Inspect"], "cautions": []},
+        {"summary": "Review", "actions": ["Inspect", "Monitor"], "cautions": ["1", "2", "3", "4"]},
         {"summary": "   ", "actions": ["Inspect"], "cautions": ["Uncertain"]},
+        {"summary": "First paragraph.\nSecond paragraph.", "actions": ["Inspect", "Monitor"], "cautions": ["Uncertain"]},
         {"summary": "Review", "actions": ["   "], "cautions": ["Uncertain"]},
         {"summary": "Review", "actions": ["Inspect"], "cautions": ["   "]},
         {"summary": "Review", "actions": ["1", "2", "3", "4", "5"], "cautions": ["Uncertain"]},
@@ -152,21 +167,54 @@ def test_incomplete_suggestion_content_is_rejected(content):
 
 
 def test_valid_suggestion_content_is_trimmed_and_schema_matches_runtime_contract():
-    content = SuggestionContent.model_validate({"summary": "  Review  ", "actions": ["  Inspect trend  "], "cautions": ["  Decision support only  "]})
-    assert content.model_dump() == {"summary": "Review", "actions": ["Inspect trend"], "cautions": ["Decision support only"]}
+    content = SuggestionContent.model_validate({
+        "summary": "  State of health remains relatively strong.  ",
+        "actions": ["  Continue monitoring  ", "  Compare the next result  "],
+        "cautions": ["  Consider predictive uncertainty  "],
+    })
+    assert content.model_dump() == {
+        "summary": "State of health remains relatively strong.",
+        "actions": ["Continue monitoring", "Compare the next result"],
+        "cautions": ["Consider predictive uncertainty"],
+    }
     schema = SuggestionContent.model_json_schema()
-    assert schema["properties"]["actions"]["minItems"] == 1 and schema["properties"]["actions"]["maxItems"] == 4
-    assert schema["properties"]["cautions"]["minItems"] == 1 and schema["properties"]["cautions"]["maxItems"] == 4
+    assert schema["properties"]["actions"]["minItems"] == 2 and schema["properties"]["actions"]["maxItems"] == 4
+    assert schema["properties"]["cautions"]["minItems"] == 1 and schema["properties"]["cautions"]["maxItems"] == 3
     assert schema["properties"]["actions"]["items"]["minLength"] == 1
     assert schema["properties"]["cautions"]["items"]["minLength"] == 1
     assert schema["additionalProperties"] is False
 
 
-def test_invalid_first_completion_retries_once_with_same_bounded_summary_then_succeeds():
+@pytest.mark.parametrize(
+    "unsupported_text",
+    [
+        "Check the actual SOC before continuing.",
+        "Check the battery's State of Charge before continuing.",
+        "The prediction model accuracy may be low.",
+        "Review the software version and calibration history.",
+        "Overall, this is a reliable estimate.",
+        "Maintenance is necessary based on this result.",
+        "The battery may be nearing end-of-life.",
+    ],
+)
+def test_unsupported_generated_subjects_are_rejected(unsupported_text):
+    with pytest.raises(ValidationError, match="unsupported generated subject"):
+        SuggestionContent.model_validate({
+            "summary": "The estimated state of health should be interpreted with uncertainty.",
+            "actions": [unsupported_text, "Repeat the health measurement later."],
+            "cautions": ["Use operating context for major decisions."],
+        })
+
+
+def test_invalid_first_completion_retries_once_with_same_two_field_payload_then_succeeds():
     requests = []
     completions = [
-        {"summary": "Review", "actions": [], "cautions": ["Uncertain"]},
-        {"summary": "Review", "actions": ["Inspect the trend"], "cautions": ["Decision support only"]},
+        {"summary": "Check State of Charge before use.", "actions": ["Review SOC.", "Inspect the trend."], "cautions": ["Uncertain"]},
+        {
+            "summary": "The estimated state of health remains relatively strong.",
+            "actions": ["Continue routine monitoring.", "Compare the next result with this estimate."],
+            "cautions": ["Interpret the estimate with its predictive uncertainty."],
+        },
     ]
 
     def handler(request):
@@ -178,17 +226,19 @@ def test_invalid_first_completion_retries_once_with_same_bounded_summary_then_su
     source = summary()
     before = source.model_dump()
     response = run(client_for(handler).generate(source))
-    assert response.suggestions.actions == ["Inspect the trend"]
+    assert response.suggestions.actions == ["Continue routine monitoring.", "Compare the next result with this estimate."]
     assert source.model_dump() == before
     assert len(requests) == 2
     assert requests[0]["messages"][1]["content"] == requests[1]["messages"][1]["content"]
     assert "BEGIN BATTERYAI_PREDICTION_DATA" in requests[1]["messages"][1]["content"]
-    assert "rows" not in requests[1]["messages"][1]["content"]
+    payload = json.loads(requests[1]["messages"][1]["content"].split("\n")[1])
+    assert frozenset(payload) == PROMPT_PAYLOAD_FIELDS
     assert app_module.PAIRING_TOKEN not in json.dumps(requests[1])
-    assert "at least one non-empty" in requests[1]["messages"][-1]["content"]
+    assert requests[1]["messages"][-1]["content"] == RETRY_CORRECTION
+    assert len(requests[1]["messages"]) == 3
 
 
-def test_two_incomplete_completions_stop_after_one_retry_with_structured_error():
+def test_two_invalid_completions_stop_after_exactly_one_retry_with_structured_error():
     chat_calls = 0
 
     def handler(request):
@@ -196,7 +246,11 @@ def test_two_incomplete_completions_stop_after_one_retry_with_structured_error()
         if request.url.path == "/api/version": return httpx.Response(200, json={"version": "0.30.11"})
         if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
         chat_calls += 1
-        return httpx.Response(200, json={"message": {"content": json.dumps({"summary": "Review", "actions": [], "cautions": ["Uncertain"]})}})
+        return httpx.Response(200, json={"message": {"content": json.dumps({
+            "summary": "The model has a high error rate.",
+            "actions": ["Review model performance.", "Check State of Charge."],
+            "cautions": ["Inspect the training dataset."],
+        })}})
 
     with pytest.raises(SuggestionServiceError) as raised:
         run(client_for(handler).generate(summary()))
@@ -260,7 +314,11 @@ def test_protected_suggestion_api_returns_typed_response_without_mutating_summar
 
         async def generate(self, payload):
             captured.append(payload.model_copy(deep=True))
-            return SuggestionResponse(suggestions=SuggestionContent(summary="Review", actions=["Inspect"], cautions=["Uncertain"]), timing=SuggestionTiming(total_ms=1))
+            return SuggestionResponse(suggestions=SuggestionContent(
+                summary="The state of health estimate is ready for review.",
+                actions=["Continue monitoring.", "Compare the next result."],
+                cautions=["Consider predictive uncertainty."],
+            ), timing=SuggestionTiming(total_ms=1))
 
     monkeypatch.setattr(app_module, "get_ollama_client", lambda: FakeClient())
     source = summary()
@@ -292,7 +350,7 @@ def test_health_and_startup_remain_available_without_ollama(monkeypatch):
     assert "Ollama ready: False" in banner
 
 
-def test_prompt_excludes_internal_identifiers_but_keeps_analysis_values():
+def test_prompt_serializes_only_the_two_customer_interpretation_values():
     """The request contract still carries internal fields; the prompt must not."""
     captured = {}
 
@@ -301,7 +359,11 @@ def test_prompt_excludes_internal_identifiers_but_keeps_analysis_values():
         if request.url.path == "/api/tags": return httpx.Response(200, json={"models": [{"name": OLLAMA_MODEL}]})
         captured.update(json.loads(request.content))
         return httpx.Response(200, json={"message": {"content": json.dumps(
-            {"summary": "Analysis complete", "actions": ["Review the estimate"], "cautions": ["Consider uncertainty"]}
+            {
+                "summary": "The estimated state of health remains relatively strong.",
+                "actions": ["Continue monitoring.", "Compare the next result."],
+                "cautions": ["Consider predictive uncertainty."],
+            }
         )}})
 
     source = summary(
@@ -313,28 +375,48 @@ def test_prompt_excludes_internal_identifiers_but_keeps_analysis_values():
     before = source.model_dump()
     run(client_for(handler).generate(source))
 
-    prompt = json.dumps(captured)
-    for term in ["oxford", "pimoe", "RUL", "next-observed-checkpoint", "core_operational", "cuda", "local-pytorch", "a" * 64, "model_profile", "active_experts", "runtime_device"]:
-        assert term.lower() not in prompt.lower(), term
-
-    # The values the insight actually needs are still present.
     user_message = captured["messages"][1]["content"]
     assert "BEGIN BATTERYAI_PREDICTION_DATA" in user_message
-    assert str(source.predicted_soh) in user_message
-    assert str(source.predictive_std) in user_message
-    assert str(source.actual_soh) in user_message
+    payload = json.loads(user_message.split("\n")[1])
+    assert payload == {
+        "predicted_soh_percent": source.predicted_soh,
+        "predictive_uncertainty_pp": source.predictive_std,
+    }
+    assert frozenset(payload) == PROMPT_PAYLOAD_FIELDS
+    for forbidden_value in [
+        source.actual_soh,
+        source.absolute_error,
+        source.model_profile,
+        source.model_sha256,
+        source.active_experts[0],
+        source.limitations[0],
+        source.backend,
+        source.runtime_device,
+        source.input_quality[0],
+    ]:
+        assert str(forbidden_value) not in user_message
+    for forbidden_key in [
+        "actual_soh", "absolute_error", "source_checkpoint", "target_checkpoint",
+        "sequence_id", "cell_id", "input_quality", "rows", "model_profile",
+        "model_sha256", "active_experts", "limitations", "backend", "runtime_device",
+    ]:
+        assert forbidden_key not in user_message
 
     # The accepted request object is unchanged, so the HTTP contract still holds.
     assert source.model_dump() == before
     assert source.model_profile == "oxford-v1" and source.runtime_device == "cuda:0"
 
 
-def test_system_prompt_forbids_naming_internal_components():
-    from services.local_inference.batteryai_runtime.ollama import SYSTEM_PROMPT
-
+def test_system_prompt_defines_soh_only_customer_guidance():
     lowered = SYSTEM_PROMPT.lower()
-    for required in ["never name or describe any model", "dataset", "checkpoint", "deployment"]:
+    for required in [
+        "battery-health decision-support assistant",
+        "state of health means soh",
+        "do not discuss state of charge or soc",
+        "do not evaluate, criticize, rank, diagnose, or speculate about the prediction model",
+        "predictive uncertainty as uncertainty around the estimate",
+        "2 to 4 non-empty actions and 1 to 3 non-empty cautions",
+    ]:
         assert required in lowered, required
-    # The instruction itself must not seed internal vocabulary into generations.
-    for forbidden in ["oxford", "pimoe", "ollama", "llama", "rul", "cuda", "onnx"]:
-        assert forbidden not in lowered, forbidden
+    for named_internal in ["oxford", "pimoe", "ollama", "llama", "cuda", "onnx"]:
+        assert named_internal not in lowered, named_internal

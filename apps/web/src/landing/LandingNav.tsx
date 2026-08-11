@@ -15,7 +15,7 @@ export function LandingNav() {
 
   return <nav className="landing-nav" aria-label="Primary">
     <div className="landing-nav__bar">
-      <a className="landing-nav__brand mono" href={landingPath()}><span className="landing-nav__mark" aria-hidden="true" />BATTERY/AI</a>
+      <a className="landing-nav__brand mono" href={landingPath()}><span className="landing-nav__mark" aria-hidden="true" />Re-Li</a>
       <ul className="landing-nav__links mono">
         {landingSections.map((section) => <li key={section.id}><a href={`#${section.id}`}>{section.label}</a></li>)}
       </ul>

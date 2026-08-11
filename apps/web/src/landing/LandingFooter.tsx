@@ -9,7 +9,7 @@ export function LandingFooter() {
           <li><a href="#how-it-works">How it works</a></li>
         </ul>
       </nav>
-      <p className="mono landing-footer__note">© {new Date().getFullYear()} BatteryAI</p>
+      <p className="mono landing-footer__note">© {new Date().getFullYear()} Re-Li</p>
     </div>
   </footer>;
 }

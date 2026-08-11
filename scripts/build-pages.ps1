@@ -32,6 +32,13 @@ try {
     # Customer-facing HTML must never carry internal implementation vocabulary.
     # Bundled JS keeps API contract strings, which is required for the app to work.
     $Markup = Get-ChildItem -LiteralPath $Dist -Recurse -File -Filter '*.html'
+    $LegacyBrandMarkup = $Markup | Select-String -Pattern '(?<!/)BatteryAI|BATTERY/AI|Battery AI'
+    if ($LegacyBrandMarkup) { throw "Legacy BatteryAI product branding found in public markup: $($LegacyBrandMarkup[0].Path) -> $($LegacyBrandMarkup[0].Line.Trim())" }
+    # Scan exact formerly public phrases in all text artifacts while allowing
+    # compatibility identifiers such as X-BatteryAI-Token, BATTERYAI_*,
+    # batteryai_runtime, and the required /BatteryAI/ Pages base path.
+    $LegacyBrandText = $Text | Select-String -Pattern 'BatteryAI dashboard|BatteryAI CSV format|BatteryAI is unavailable|Loading BatteryAI|BATTERY/AI|BatteryAI estimates battery state of health'
+    if ($LegacyBrandText) { throw "Legacy client-facing BatteryAI phrase found in static build: $($LegacyBrandText[0].Path)" }
     $InternalText = $Markup | Select-String -Pattern 'Oxford|PIMoE|Ollama|llama3\.2|ONNX|FastAPI|Tailscale|Funnel|GitHub Pages|CUDA|SHA-256|active experts|masked experts|model profile|RUL |next-observed-checkpoint|loopback|host computer'
     if ($InternalText) { throw "Internal implementation term found in rendered markup: $($InternalText[0].Path) -> $($InternalText[0].Line.Trim())" }
     Write-Host "GitHub Pages artifact verified: $Dist"

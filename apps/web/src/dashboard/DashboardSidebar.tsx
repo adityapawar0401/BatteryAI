@@ -18,7 +18,7 @@ export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
     {open && <button type="button" className="dash-sidebar__scrim" aria-label="Close navigation" onClick={onClose} />}
     <aside id="dashboard-nav" className={`dash-sidebar${open ? " dash-sidebar--open" : ""}`}>
       <div className="dash-sidebar__brand">
-        <a className="mono dash-sidebar__logo" href={landingPath()}><span className="dash-sidebar__mark" aria-hidden="true" />BatteryAI</a>
+        <a className="mono dash-sidebar__logo" href={landingPath()}><span className="dash-sidebar__mark" aria-hidden="true" />Re-Li</a>
       </div>
       <nav className="dash-sidebar__nav mono" aria-label="Dashboard sections">
         <ul>

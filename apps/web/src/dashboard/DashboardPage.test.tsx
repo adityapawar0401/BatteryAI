@@ -7,6 +7,7 @@ import exampleCsv from "../../public/fixtures/oxford-real-example.csv?raw";
 import appConfig from "../../public/config/app.json";
 import modelProfile from "../../public/config/oxford-v1.json";
 import inputSchema from "../../public/config/oxford-input-schema.json";
+import dashboardHtml from "../../dashboard/index.html?raw";
 
 const ACCESS_CODE = "access-code-value";
 const SHA = modelProfile.modelSha256;
@@ -70,6 +71,36 @@ async function connect(): Promise<void> {
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); sessionStorage.clear(); localStorage.clear(); document.body.className = ""; });
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+
+describe("dashboard branding", () => {
+  it("renders Re-Li in the dashboard header and navigation", async () => {
+    await renderDashboard();
+    expect(screen.getByRole("heading", { level: 1, name: "Re-Li dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Re-Li" })).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/BatteryAI|BATTERY\/AI|Battery AI/);
+  });
+
+  it("uses Re-Li in dashboard metadata without exposing the legacy public brand", () => {
+    const document = new DOMParser().parseFromString(dashboardHtml, "text/html");
+    const description = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    expect(document.title).toBe("Re-Li | Dashboard");
+    expect(description).toContain("Re-Li dashboard");
+    expect(`${document.title} ${description}`).not.toContain("BatteryAI");
+  });
+
+  it("uses Re-Li in customer-facing loading and startup failure text", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => undefined));
+    const loading = render(<DashboardPage />);
+    expect(screen.getByText("Loading Re-Li…")).toBeInTheDocument();
+    loading.unmount();
+    vi.restoreAllMocks();
+
+    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("unavailable"));
+    render(<DashboardPage />);
+    expect(await screen.findByRole("heading", { name: "Re-Li is unavailable" })).toBeInTheDocument();
+    expect(screen.getByText("Re-Li could not start. Refresh to try again.")).toBeInTheDocument();
+  });
+});
 
 describe("dashboard confidentiality", () => {
   it("renders no internal implementation terminology before connecting", async () => {
@@ -203,7 +234,7 @@ describe("dashboard data workflow", () => {
 
   it("keeps the CSV format help and the editable table available", async () => {
     await renderDashboard();
-    const help = screen.getByText("BatteryAI CSV format").closest("details")!;
+    const help = screen.getByText("Re-Li CSV format").closest("details")!;
     for (const field of ["sequence_id", "cell_id", "source_checkpoint", "target_checkpoint", "modality", "point_index", "time_s", "voltage_V", "capacity_Ah", "temperature_K", "actual_soh"]) {
       expect(within(help).getByText(new RegExp(`^${field}`))).toBeInTheDocument();
     }

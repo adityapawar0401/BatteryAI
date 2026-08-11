@@ -16,7 +16,7 @@ export function DashboardHeader({ connected, busy, completed, onOpenNav, navOpen
       <span className="visually-hidden">Open navigation</span>
       <span aria-hidden="true">≡</span>
     </button>
-    <h1 className="dash-header__title mono">BatteryAI dashboard</h1>
+    <h1 className="dash-header__title mono">Re-Li dashboard</h1>
     <div className="dash-header__status">
       <StatusBadge tone={connected ? "healthy" : "warning"} label="Connection">{connected ? "Connected" : "Disconnected"}</StatusBadge>
       <StatusBadge tone={busy || completed ? "healthy" : "idle"} label="Analysis">{analysis}</StatusBadge>

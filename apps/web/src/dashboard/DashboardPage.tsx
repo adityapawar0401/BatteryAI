@@ -58,7 +58,7 @@ export function DashboardPage() {
       const validatedApp = applyBuildDeploymentConfig(app); const validatedProfile = validateModelProfile(model);
       if (validatedApp.modelProfile !== validatedProfile.id) throw new Error("App and model profile selections do not match.");
       setConfig(validatedApp); setProfile(validatedProfile); setSchema(input); setEndpoint(validatedApp.remoteEnabled ? validatedApp.remoteApiUrl! : validatedApp.localEndpoint);
-    }).catch(() => setStartupError("BatteryAI could not start. Refresh to try again."));
+    }).catch(() => setStartupError("Re-Li could not start. Refresh to try again."));
   }, []);
 
   const local = useMemo(() => new LocalHttpInferenceProvider(endpoint.replace(/\/$/, ""), token, profile?.modelSha256, config?.remoteEnabled ? config.remoteApiUrl : null), [endpoint, token, profile, config]);
@@ -110,8 +110,8 @@ export function DashboardPage() {
     setRows([]); setCsvText(""); setResponse(null); setErrors([]); setValidated(false); setNotice("Cleared.");
   }
 
-  if (startupError) return <main className="dash-startup"><section className="dash-error"><h1>BatteryAI is unavailable</h1><p>{startupError}</p></section></main>;
-  if (!config || !profile || !schema) return <main className="dash-startup"><p>Loading BatteryAI…</p></main>;
+  if (startupError) return <main className="dash-startup"><section className="dash-error"><h1>Re-Li is unavailable</h1><p>{startupError}</p></section></main>;
+  if (!config || !profile || !schema) return <main className="dash-startup"><p>Loading Re-Li…</p></main>;
 
   return <div className="dash">
     <a className="skip-link" href="#overview">Skip to content</a>
@@ -134,8 +134,8 @@ export function DashboardPage() {
         <ResultsSection
           connected={paired} busy={busy} rowCount={rows.length} response={response}
           onRun={runAnalysis} onCancel={() => abortRef.current?.abort()}
-          onExportJson={() => download("batteryai-results.json", JSON.stringify(response, null, 2), "application/json")}
-          onExportCsv={() => download("batteryai-results.csv", resultsToCsv((response?.results ?? []) as unknown as Record<string, unknown>[]), "text/csv")}
+          onExportJson={() => download("Re-Li-results.json", JSON.stringify(response, null, 2), "application/json")}
+          onExportCsv={() => download("Re-Li-results.csv", resultsToCsv((response?.results ?? []) as unknown as Record<string, unknown>[]), "text/csv")}
         />
         <SuggestionPanel paired={paired} latestResult={response?.results[0] ?? null} provider={suggestionProvider} onStatusChange={setLlmStatus} />
       </div>

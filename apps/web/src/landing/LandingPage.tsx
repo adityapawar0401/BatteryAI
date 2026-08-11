@@ -44,7 +44,7 @@ export function LandingPage() {
         <div className="landing-hero__glow" aria-hidden="true" />
         <div className="landing-hero__inner">
           <p className="eyebrow">Battery health intelligence</p>
-          <h1 className="landing-hero__title mono">BatteryAI</h1>
+          <h1 className="landing-hero__title mono">Re-Li</h1>
           <p className="landing-hero__tagline">Battery intelligence for confident decisions.</p>
           <div className="landing-hero__body">
             <p className="landing-hero__lede">

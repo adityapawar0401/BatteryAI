@@ -2,6 +2,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { dashboardPath } from "../routes";
 import { LandingPage } from "./LandingPage";
+import landingHtml from "../../index.html?raw";
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
@@ -16,10 +17,21 @@ const internalTerms = [
 describe("landing page", () => {
   it("renders the product hero without contacting any backend", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    render(<LandingPage />);
-    expect(screen.getByRole("heading", { level: 1, name: /batteryai/i })).toBeInTheDocument();
+    const { container } = render(<LandingPage />);
+    expect(screen.getByRole("heading", { level: 1, name: "Re-Li" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Re-Li" })).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`© ${new Date().getFullYear()} Re-Li`))).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/BatteryAI|BATTERY\/AI|Battery AI/);
     expect(screen.getByText("Battery intelligence for confident decisions.")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses Re-Li in landing metadata without exposing the legacy public brand", () => {
+    const document = new DOMParser().parseFromString(landingHtml, "text/html");
+    const description = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
+    expect(document.title).toBe("Re-Li | Battery health intelligence");
+    expect(description).toContain("Re-Li");
+    expect(`${document.title} ${description}`).not.toContain("BatteryAI");
   });
 
   it("exposes no internal implementation terminology", () => {

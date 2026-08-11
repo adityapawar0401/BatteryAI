@@ -114,7 +114,7 @@ export function DataInputSection(props: DataInputSectionProps) {
     <p className="dash-notice" role="status">{notice}</p>
 
     <details className="dash-details">
-      <summary>BatteryAI CSV format</summary>
+      <summary>Re-Li CSV format</summary>
       <dl className="field-help">
         {columns.map((column) => <div className="field-help__row" key={column}>
           <dt className="mono">{column}{column !== "actual_soh" ? <span className="field-help__req"> required</span> : <span className="field-help__opt"> optional</span>}</dt>

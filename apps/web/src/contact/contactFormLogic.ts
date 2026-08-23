@@ -21,6 +21,14 @@ export interface ContactFormFields {
 
 export type ContactFormErrors = Partial<Record<"name" | "email" | "organization" | "inquiry_type" | "message", string>>;
 
+const PROVIDER_FIELD_ERROR_MESSAGES: Required<ContactFormErrors> = {
+  name: "Check your full name and try again.",
+  email: "Check your email address and try again.",
+  organization: "Check your organization and try again.",
+  inquiry_type: "Select an inquiry type and try again.",
+  message: "Check your message and try again.",
+};
+
 export const EMPTY_CONTACT_FORM: ContactFormFields = {
   name: "",
   email: "",
@@ -64,4 +72,29 @@ export function configuredContactEndpoint(): string | null {
   } catch {
     return null;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isContactField(value: unknown): value is keyof ContactFormErrors {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(PROVIDER_FIELD_ERROR_MESSAGES, value);
+}
+
+export async function safeProviderFieldErrors(response: Response): Promise<ContactFormErrors> {
+  let payload: unknown;
+  try {
+    payload = await response.json() as unknown;
+  } catch {
+    return {};
+  }
+  if (!isRecord(payload) || !Array.isArray(payload.errors)) return {};
+
+  const errors: ContactFormErrors = {};
+  for (const item of payload.errors) {
+    if (!isRecord(item) || typeof item.message !== "string" || !isContactField(item.field)) continue;
+    errors[item.field] = PROVIDER_FIELD_ERROR_MESSAGES[item.field];
+  }
+  return errors;
 }

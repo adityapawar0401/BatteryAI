@@ -4,6 +4,7 @@ import {
   configuredContactEndpoint,
   EMPTY_CONTACT_FORM,
   INQUIRY_TYPES,
+  safeProviderFieldErrors,
   type ContactFormErrors,
   type ContactFormFields,
   validateContactForm,
@@ -13,6 +14,7 @@ type SubmissionState = "idle" | "submitting" | "success" | "error";
 
 const MISSING_ENDPOINT_MESSAGE = `Online inquiry submission is temporarily unavailable. Please email us at ${RELI_SUPPORT_EMAIL}.`;
 const FAILURE_MESSAGE = `We couldn't send your inquiry right now. Please try again or email ${RELI_SUPPORT_EMAIL}.`;
+const RATE_LIMIT_MESSAGE = `Too many inquiries were submitted recently. Please wait a moment and try again, or email ${RELI_SUPPORT_EMAIL}.`;
 const SUCCESS_MESSAGE = "Thank you. Your inquiry has been sent to Re-Li.";
 
 export function ContactForm() {
@@ -70,7 +72,21 @@ export function ContactForm() {
           message: fields.message.trim(),
         }),
       });
-      if (!response.ok) throw new Error("Contact submission was rejected.");
+      if (response.status === 429) {
+        setSubmissionState("error");
+        setStatusMessage(RATE_LIMIT_MESSAGE);
+        return;
+      }
+      if (!response.ok) {
+        const providerErrors = await safeProviderFieldErrors(response);
+        setErrors(providerErrors);
+        setSubmissionState("error");
+        setStatusMessage(FAILURE_MESSAGE);
+        if (Object.keys(providerErrors).length) {
+          requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
+        }
+        return;
+      }
       setFields(EMPTY_CONTACT_FORM);
       setErrors({});
       setSubmissionState("success");

@@ -37,20 +37,39 @@ jobs:
             echo "::error::BATTERYAI_REMOTE_API_URL must be an exact HTTPS ts.net origin with no port, path, query, or fragment."
             exit 1
           fi
+      - name: Require the configured Contact form endpoint
+        shell: bash
+        env:
+          CONTACT_FORM_ENDPOINT: ${{ vars.RELI_CONTACT_FORM_ENDPOINT }}
+        run: |
+          if [ -z "$CONTACT_FORM_ENDPOINT" ]; then
+            echo "::error::The RELI_CONTACT_FORM_ENDPOINT repository variable is not set."
+            exit 1
+          fi
+          if ! printf '%s' "$CONTACT_FORM_ENDPOINT" | grep -qE '^https://formspree\.io/f/[A-Za-z0-9]+$'; then
+            echo "::error::RELI_CONTACT_FORM_ENDPOINT must be an exact HTTPS formspree.io form endpoint."
+            exit 1
+          fi
       - run: npm run build
         working-directory: apps/web
         env:
           VITE_BATTERYAI_REMOTE_MODE: "1"
           VITE_BATTERYAI_REMOTE_API_URL: ${{ vars.BATTERYAI_REMOTE_API_URL }}
+          VITE_RELI_CONTACT_FORM_ENDPOINT: ${{ vars.RELI_CONTACT_FORM_ENDPOINT }}
           BATTERYAI_PAGES_BASE: ${{ vars.BATTERYAI_PAGES_BASE || '/BatteryAI/' }}
       - name: Verify static artifact
         shell: bash
+        env:
+          CONTACT_FORM_ENDPOINT: ${{ vars.RELI_CONTACT_FORM_ENDPOINT }}
         run: |
           test -f apps/web/dist/index.html
           test -f apps/web/dist/dashboard/index.html
+          test -f apps/web/dist/contact/index.html
+          grep -R -F -q "$CONTACT_FORM_ENDPOINT" apps/web/dist
           ! find apps/web/dist -type f \( -name 'model.pt' -o -name '*.mat' -o -name '*.onnx' -o -name '*.onnx.data' -o -name 'landingpage.txt' -o -name 'dashboard.txt' \) | grep .
           ! find apps/web/dist -type f | grep -E '(_inputs|batteryai-gpu-env|local-reports)'
           ! grep -R -E 'C:\\Users\\|Pairing token:|Oxford_Battery_Degradation_Dataset_1\.mat' apps/web/dist
+          ! grep -R -i -E 'Gmail (app )?password[[:space:]]*[:=]|SMTP (password|credential)[[:space:]]*[:=]|OAuth (client )?secret[[:space:]]*[:=]|API secret[[:space:]]*[:=]' apps/web/dist
           ! grep -R -i -E 'cdn\.tailwindcss\.com|Transformer-V4|LIVE DATA STREAM|SYSTEMS NOMINAL|Adaptive Charging|Request deployment|99\.8 ?%? ?accuracy|Prediction accuracy' apps/web/dist
           # Rendered markup must carry no internal implementation vocabulary.
           # Bundled JS keeps API contract strings, which the app requires to work.

@@ -112,6 +112,10 @@
   color: var(--color-text);
 }
 
+.landing-nav__links a[aria-current="page"] {
+  color: var(--color-volt);
+}
+
 .landing-nav__cta {
   display: none;
 }
@@ -279,6 +283,62 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: clamp(2rem, 4vw, 3rem);
+}
+
+/* Contact hero ---------------------------------------------------------------- */
+
+.contact-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(4.5rem, 11vw, 8rem) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.contact-hero__title {
+  max-width: 12ch;
+  margin: 0;
+  font-size: clamp(2.75rem, 9vw, 7rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+}
+
+.contact-hero__lede {
+  max-width: 54rem;
+  margin: clamp(1.5rem, 4vw, 2.5rem) 0 0;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  color: var(--color-muted);
+}
+
+.contact-email {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+  max-width: 54rem;
+  margin-top: clamp(2rem, 5vw, 3rem);
+}
+
+.contact-email__label {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+.contact-email__address {
+  max-width: 100%;
+  font-size: clamp(1.2rem, 4vw, 2rem);
+  overflow-wrap: anywhere;
+  text-underline-offset: 0.2em;
+}
+
+.contact-email__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
 }
 
 @media (min-width: 860px) {
@@ -453,6 +513,26 @@
   margin: 0;
   font-size: clamp(1rem, 2vw, 1.25rem);
   color: var(--color-text);
+}
+
+.landing-cta__content {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.landing-cta__heading {
+  margin: 0;
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+}
+
+.landing-cta__text {
+  color: var(--color-muted);
+}
+
+.landing-cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 /* Footer ---------------------------------------------------------------------- */

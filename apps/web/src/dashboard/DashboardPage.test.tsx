@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { landingPath } from "../routes";
+import { contactPath, landingPath } from "../routes";
 import type { PredictionResult } from "../types";
 import { DashboardPage } from "./DashboardPage";
 import exampleCsv from "../../public/fixtures/oxford-real-example.csv?raw";
@@ -154,6 +154,7 @@ describe("dashboard confidentiality", () => {
       expect(screen.queryByRole("link", { name: label })).not.toBeInTheDocument();
     }
     expect(screen.getByRole("link", { name: /Back to landing page/ })).toHaveAttribute("href", landingPath());
+    expect(screen.getByRole("link", { name: "Contact Re-Li" })).toHaveAttribute("href", contactPath());
   });
 });
 
@@ -204,6 +205,7 @@ describe("dashboard data workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Validate data" }));
     await waitFor(() => expect(dataNotice()).toHaveTextContent("3,510 rows passed validation"));
     expect(within(document.getElementById("validation")!).getByText("Validation passed")).toBeInTheDocument();
+    expect(within(document.getElementById("validation")!).getByText("Validation confirms that the supplied battery data is complete and structured correctly before analysis.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Input Data Preview" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Voltage against point index\. 3,510 supplied points/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Capacity coordinate against point index/ })).toBeInTheDocument();

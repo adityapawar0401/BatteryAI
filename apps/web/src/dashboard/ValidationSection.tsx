@@ -16,6 +16,7 @@ export function ValidationSection({ summary, errors, validated }: ValidationSect
       <div>
         <p className="eyebrow">Validation</p>
         <h2 id="validation-heading">Data validation</h2>
+        <p className="dash-section__intro">Validation confirms that the supplied battery data is complete and structured correctly before analysis.</p>
       </div>
       <StatusBadge tone={tone} label="Status">{state}</StatusBadge>
     </div>

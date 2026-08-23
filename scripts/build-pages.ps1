@@ -15,6 +15,7 @@ try {
     $Dist = Join-Path $Web 'dist'
     if (-not (Test-Path -LiteralPath (Join-Path $Dist 'index.html'))) { throw 'GitHub Pages artifact has no landing index.html.' }
     if (-not (Test-Path -LiteralPath (Join-Path $Dist 'dashboard\index.html'))) { throw 'GitHub Pages artifact has no dashboard/index.html, so /dashboard/ would 404 on direct refresh.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $Dist 'contact\index.html'))) { throw 'GitHub Pages artifact has no contact/index.html, so /contact/ would 404 on direct refresh.' }
     $Files = Get-ChildItem -LiteralPath $Dist -Recurse -File
     $Forbidden = $Files | Where-Object {
         $_.Name -eq 'model.pt' -or $_.Extension -eq '.mat' -or $_.Name -like '*.onnx*' -or
@@ -44,6 +45,7 @@ try {
     Write-Host "GitHub Pages artifact verified: $Dist"
     Write-Host '  landing   -> dist/index.html'
     Write-Host '  dashboard -> dist/dashboard/index.html'
+    Write-Host '  contact   -> dist/contact/index.html'
 }
 finally {
     Set-Location $PreviousLocation

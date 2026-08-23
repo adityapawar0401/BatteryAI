@@ -1,16 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { assetPath, dashboardPath, landingPath, normalizeBase, resolveFromBase } from "./routes";
+import { assetPath, contactPath, dashboardPath, landingPath, normalizeBase, resolveFromBase } from "./routes";
 
 describe("repository-subpath routing", () => {
   it("resolves production GitHub Pages routes under the repository base", () => {
     expect(landingPath("/BatteryAI/")).toBe("/BatteryAI/");
     expect(dashboardPath("/BatteryAI/")).toBe("/BatteryAI/dashboard/");
+    expect(contactPath("/BatteryAI/")).toBe("/BatteryAI/contact/");
     expect(assetPath("config/app.json", "/BatteryAI/")).toBe("/BatteryAI/config/app.json");
   });
 
   it("resolves local development routes at the server root", () => {
     expect(landingPath("/")).toBe("/");
     expect(dashboardPath("/")).toBe("/dashboard/");
+    expect(contactPath("/")).toBe("/contact/");
     expect(assetPath("fixtures/oxford-real-example.csv", "/")).toBe("/fixtures/oxford-real-example.csv");
   });
 
@@ -24,7 +26,7 @@ describe("repository-subpath routing", () => {
   });
 
   it("never produces a domain-root path that ignores the repository subpath", () => {
-    for (const path of [landingPath("/BatteryAI/"), dashboardPath("/BatteryAI/"), assetPath("config/oxford-v1.json", "/BatteryAI/")]) {
+    for (const path of [landingPath("/BatteryAI/"), dashboardPath("/BatteryAI/"), contactPath("/BatteryAI/"), assetPath("config/oxford-v1.json", "/BatteryAI/")]) {
       expect(path.startsWith("/BatteryAI/")).toBe(true);
       expect(path.startsWith("//")).toBe(false);
     }
@@ -32,5 +34,6 @@ describe("repository-subpath routing", () => {
 
   it("uses the build-time base by default", () => {
     expect(dashboardPath()).toBe(`${normalizeBase(import.meta.env.BASE_URL)}dashboard/`);
+    expect(contactPath()).toBe(`${normalizeBase(import.meta.env.BASE_URL)}contact/`);
   });
 });

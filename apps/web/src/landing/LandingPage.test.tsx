@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { contactPath, dashboardPath } from "../routes";
-import { CONTACT_EMAIL, CONTACT_MAILTO } from "./LandingFooter";
+import { RELI_SUPPORT_EMAIL, RELI_SUPPORT_MAILTO } from "./LandingFooter";
 import { LandingPage } from "./LandingPage";
 import landingHtml from "../../index.html?raw";
 
@@ -129,7 +129,8 @@ describe("landing page", () => {
   it("shows the authorized contact information in the compact footer", () => {
     render(<LandingPage />);
     const footer = screen.getByRole("contentinfo");
-    expect(within(footer).getByRole("link", { name: CONTACT_EMAIL })).toHaveAttribute("href", CONTACT_MAILTO);
+    expect(within(footer).getByRole("link", { name: RELI_SUPPORT_EMAIL })).toHaveAttribute("href", RELI_SUPPORT_MAILTO);
+    expect(within(footer).queryByRole("link", { name: "reli@gmail.com" })).not.toBeInTheDocument();
     expect(within(footer).getByRole("link", { name: "Dashboard" })).toHaveAttribute("href", dashboardPath());
     expect(within(footer).getByRole("link", { name: "Contact" })).toHaveAttribute("href", contactPath());
   });

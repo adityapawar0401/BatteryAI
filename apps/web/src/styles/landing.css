@@ -311,25 +311,10 @@
   color: var(--color-muted);
 }
 
-.contact-email {
-  display: grid;
-  justify-items: start;
-  gap: 0.75rem;
-  max-width: 54rem;
-  margin-top: clamp(2rem, 5vw, 3rem);
-}
-
-.contact-email__label {
-  margin: 0;
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-faint);
-}
-
 .contact-email__address {
+  display: inline-block;
   max-width: 100%;
-  font-size: clamp(1.2rem, 4vw, 2rem);
+  font-size: clamp(1.05rem, 2.4vw, 1.45rem);
   overflow-wrap: anywhere;
   text-underline-offset: 0.2em;
 }
@@ -339,6 +324,216 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 0.5rem;
+}
+
+/* Contact methods and form --------------------------------------------------- */
+
+.landing-section--contact {
+  background: var(--color-panel-sunken);
+}
+
+.contact-methods {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+.contact-form-panel h2,
+.contact-details h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+}
+
+.contact-methods__intro {
+  margin: 0.75rem 0 1.75rem;
+  color: var(--color-muted);
+}
+
+.contact-details {
+  display: grid;
+  justify-items: start;
+  gap: 1rem;
+}
+
+.contact-details > p:not(.eyebrow) {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.contact-form {
+  position: relative;
+  display: grid;
+  gap: 1rem;
+}
+
+.contact-form__field {
+  display: grid;
+  align-content: start;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.contact-form__field label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text);
+}
+
+.contact-form__required,
+.contact-form__optional {
+  margin-left: 0.35rem;
+  font-size: 0.62rem;
+  color: var(--color-copper-text);
+}
+
+.contact-form__optional {
+  color: var(--color-faint);
+}
+
+.contact-form input,
+.contact-form select,
+.contact-form textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 0.75rem 0.85rem;
+  background: var(--color-panel-sunken);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-small);
+  color: var(--color-text);
+}
+
+.contact-form textarea {
+  min-height: 10rem;
+  resize: vertical;
+}
+
+.contact-form select {
+  cursor: pointer;
+}
+
+.contact-form option {
+  background: var(--color-panel);
+}
+
+.contact-form input::placeholder,
+.contact-form textarea::placeholder {
+  color: var(--color-faint);
+  opacity: 1;
+}
+
+.contact-form input:hover,
+.contact-form select:hover,
+.contact-form textarea:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.contact-form input[aria-invalid="true"],
+.contact-form select[aria-invalid="true"],
+.contact-form textarea[aria-invalid="true"] {
+  border-color: var(--color-copper-text);
+}
+
+.contact-form__help,
+.contact-form__error {
+  margin: 0;
+  font-size: 0.75rem;
+}
+
+.contact-form__help {
+  color: var(--color-faint);
+}
+
+.contact-form__error {
+  color: var(--color-copper-text);
+}
+
+.contact-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.contact-form__actions p,
+.contact-form__privacy {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-faint);
+}
+
+.contact-form__actions a {
+  overflow-wrap: anywhere;
+}
+
+.contact-form__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.contact-form__status:empty {
+  display: none;
+}
+
+.contact-form__status-message {
+  flex: 1 1 20rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-left: 2px solid var(--color-faint);
+  background: var(--color-panel-sunken);
+  color: var(--color-muted);
+}
+
+.contact-form__status-message--success {
+  border-left-color: var(--color-volt);
+  color: var(--color-text);
+}
+
+.contact-form__status-message--error {
+  border-left-color: var(--color-copper-text);
+}
+
+.contact-form__privacy {
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.contact-form__honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+@media (min-width: 720px) {
+  .contact-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .contact-form__field--wide,
+  .contact-form__honeypot {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 960px) {
+  .contact-methods {
+    grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 0.7fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .contact-form__actions .btn,
+  .contact-form__status .btn,
+  .contact-email__actions .btn {
+    width: 100%;
+  }
 }
 
 @media (min-width: 860px) {

@@ -26,6 +26,12 @@ try {
     $Text = $Files | Where-Object { $_.Extension -in '.html','.js','.css','.json','.map','.txt','.csv' }
     $PrivateText = $Text | Select-String -Pattern 'C:\\Users\\|Pairing token:|Oxford_Battery_Degradation_Dataset_1\.mat'
     if ($PrivateText) { throw "Private path, token text, or raw dataset name found in static build: $($PrivateText[0].Path)" }
+    $OldSupportEmail = $Text | Select-String -Pattern '(?<!support\.)reli@gmail\.com'
+    if ($OldSupportEmail) { throw "Old public Re-Li contact email found in static build: $($OldSupportEmail[0].Path)" }
+    $NewSupportEmail = $Text | Select-String -SimpleMatch 'support.reli@gmail.com'
+    if (-not $NewSupportEmail) { throw 'The public Re-Li support email is missing from the static build.' }
+    $CredentialText = $Text | Select-String -Pattern 'Gmail (?:app )?password\s*[:=]|SMTP (?:password|credential)\s*[:=]|OAuth (?:client )?secret\s*[:=]|API secret\s*[:=]'
+    if ($CredentialText) { throw "Credential-like text found in static build: $($CredentialText[0].Path)" }
     $FakeText = $Text | Select-String -Pattern 'cdn\.tailwindcss\.com|Transformer-V4|LIVE DATA STREAM|SYSTEMS NOMINAL|Adaptive Charging|Kinetic Energy Intelligence|Request deployment|99\.8\s*%?\s*accuracy|Prediction accuracy'
     if ($FakeText) { throw "CDN script or unsupported marketing claim found in static build: $($FakeText[0].Path)" }
     $EmDashText = $Text | Select-String -SimpleMatch ([string][char]0x2014)

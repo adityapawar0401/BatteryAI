@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import contactHtml from "../../contact/index.html?raw";
 import { contactPath, dashboardPath, landingPath } from "../routes";
-import { CONTACT_EMAIL, CONTACT_MAILTO } from "../landing/LandingFooter";
+import { RELI_SUPPORT_EMAIL, RELI_SUPPORT_MAILTO } from "../landing/LandingFooter";
 import { ContactPage } from "./ContactPage";
 
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
@@ -31,11 +31,13 @@ describe("contact page", () => {
   });
 
   it("shows the authorized email as selectable text and an exact mailto link", () => {
-    render(<ContactPage />);
-    const emailLinks = screen.getAllByRole("link", { name: CONTACT_EMAIL });
+    const { container } = render(<ContactPage />);
+    const emailLinks = screen.getAllByRole("link", { name: RELI_SUPPORT_EMAIL });
     expect(emailLinks.length).toBeGreaterThan(0);
-    for (const link of emailLinks) expect(link).toHaveAttribute("href", CONTACT_MAILTO);
-    expect(screen.getByRole("link", { name: "Email Re-Li" })).toHaveAttribute("href", CONTACT_MAILTO);
+    for (const link of emailLinks) expect(link).toHaveAttribute("href", RELI_SUPPORT_MAILTO);
+    for (const link of screen.getAllByRole("link", { name: "Email Re-Li" })) expect(link).toHaveAttribute("href", RELI_SUPPORT_MAILTO);
+    expect(screen.queryByText("reli@gmail.com", { exact: true })).not.toBeInTheDocument();
+    expect(container.querySelector('a[href^="mailto:reli@gmail.com"]')).toBeNull();
   });
 
   it("renders the four factual contact reasons", () => {
@@ -45,14 +47,18 @@ describe("contact page", () => {
     }
   });
 
-  it("has no fake form or invented contact information", () => {
+  it("renders the inquiry form without invented contact information", () => {
     const { container } = render(<ContactPage />);
-    expect(container.querySelector("form")).toBeNull();
-    expect(container.querySelector("input")).toBeNull();
-    expect(container.querySelector("textarea")).toBeNull();
+    expect(screen.getByRole("form", { name: "Contact inquiry form" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Full Name/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Work Email/)).toHaveAttribute("type", "email");
+    expect(screen.getByLabelText(/Company \/ Organization/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/What would you like to discuss/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Message/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send Inquiry" })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/phone|telephone|office address|linkedin|instagram|facebook|twitter|founder/i);
     const hrefs = [...container.querySelectorAll("a")].map((anchor) => anchor.getAttribute("href") ?? "");
-    expect(hrefs.filter((href) => href.startsWith("mailto:")).every((href) => href === CONTACT_MAILTO)).toBe(true);
+    expect(hrefs.filter((href) => href.startsWith("mailto:")).every((href) => href === RELI_SUPPORT_MAILTO)).toBe(true);
   });
 
   it("exposes no internal implementation terminology, legacy public brand, or em dash", () => {
@@ -79,6 +85,6 @@ describe("contact page", () => {
     expect(within(primary).getAllByRole("link", { name: "Contact" })[0]).toHaveAttribute("aria-current", "page");
     const footer = screen.getByRole("contentinfo");
     expect(within(footer).getByRole("link", { name: "Re-Li" })).toHaveAttribute("href", landingPath());
-    expect(within(footer).getByRole("link", { name: CONTACT_EMAIL })).toBeInTheDocument();
+    expect(within(footer).getByRole("link", { name: RELI_SUPPORT_EMAIL })).toBeInTheDocument();
   });
 });

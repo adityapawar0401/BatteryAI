@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assetPath, contactPath, dashboardPath, landingPath, normalizeBase, resolveFromBase } from "./routes";
+import { assetPath, contactPath, dashboardPath, failurePath, landingPath, normalizeBase, resolveFromBase } from "./routes";
 
 describe("repository-subpath routing", () => {
   it("resolves production GitHub Pages routes under the repository base", () => {
@@ -26,7 +26,7 @@ describe("repository-subpath routing", () => {
   });
 
   it("never produces a domain-root path that ignores the repository subpath", () => {
-    for (const path of [landingPath("/BatteryAI/"), dashboardPath("/BatteryAI/"), contactPath("/BatteryAI/"), assetPath("config/oxford-v1.json", "/BatteryAI/")]) {
+    for (const path of [landingPath("/BatteryAI/"), failurePath("/BatteryAI/"), dashboardPath("/BatteryAI/"), contactPath("/BatteryAI/"), assetPath("config/oxford-v1.json", "/BatteryAI/")]) {
       expect(path.startsWith("/BatteryAI/")).toBe(true);
       expect(path.startsWith("//")).toBe(false);
     }

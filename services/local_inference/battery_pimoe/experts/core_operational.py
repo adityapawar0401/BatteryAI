@@ -20,6 +20,11 @@ class CoreOperationalExpert(SequenceExpert):
         x = inputs["x"].float()
         if x.shape[-1] != 4:
             raise ValueError("core_operational expects four configured core channels")
+        if "feature_valid_mask" in masks:
+            feature_mask = masks["feature_valid_mask"].to(x.device).bool()
+            if feature_mask.shape != x.shape:
+                raise ValueError("core feature_valid_mask must match input shape")
+            x = torch.where(feature_mask, x, torch.zeros_like(x))
         valid_mask = masks.get("valid_value_mask", torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)).bool()
         stem = self.conv(x.transpose(1, 2)).transpose(1, 2)
         if "time" in inputs:

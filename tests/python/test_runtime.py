@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import copy
 
 import pytest
@@ -12,17 +13,19 @@ from batteryai_runtime.preprocessing import build_batch
 
 
 def test_artifact_checksum(root):
-    checkpoint = root / "_inputs" / "artifacts" / "oxford_final" / "model.pt"
-    expected = checkpoint.with_suffix(".pt.sha256").read_text(encoding="utf-8").split()[0]
+    from services.local_inference.app import artifact_dir_from_environment
+    artifact = artifact_dir_from_environment()
+    checkpoint = artifact / "model.pt"
+    expected = json.loads((artifact / "checksums.json").read_text(encoding="utf-8"))["files"]["model.pt"]
     assert hashlib.sha256(checkpoint.read_bytes()).hexdigest() == expected
 
 
 def test_strict_model_and_active_experts(cpu_engine):
     assert list(cpu_engine.model.runtime_active_experts) == ACTIVE_EXPERTS
-    assert len(cpu_engine.model.state_dict()) == 273
+    assert len(cpu_engine.model.state_dict()) == 288
     assert not cpu_engine.model.training
     assert all(not parameter.requires_grad for parameter in cpu_engine.model.parameters())
-    assert sum(parameter.numel() for parameter in cpu_engine.model.parameters()) == 19_508_239
+    assert sum(parameter.numel() for parameter in cpu_engine.model.parameters()) == 19_541_971
 
 
 def test_cpu_prediction_is_finite_stable_and_physical(cpu_engine, inference_request):
@@ -31,8 +34,8 @@ def test_cpu_prediction_is_finite_stable_and_physical(cpu_engine, inference_requ
     second = cpu_engine.predict(inference_request)
     a, b = first.results[0], second.results[0]
     assert a.runtime_device == "cpu"
-    assert a.predicted_soh == pytest.approx(97.06190490722656, abs=2e-4)
-    assert a.predictive_std == pytest.approx(8.065762519836426, abs=2e-4)
+    assert a.predicted_soh == pytest.approx(97.70305633544922, abs=2e-4)
+    assert a.predictive_std == pytest.approx(8.113544464111328, abs=2e-4)
     assert a.predictive_std >= 0
     assert a.predicted_soh == pytest.approx(b.predicted_soh, abs=1e-6)
     assert a.active_experts == ACTIVE_EXPERTS
@@ -66,18 +69,20 @@ def test_single_and_batch_parity(cpu_engine, inference_request):
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is unavailable")
 def test_cuda_prediction(root, inference_request):
     from batteryai_runtime.engine import BatteryAIEngine
+    from services.local_inference.app import artifact_dir_from_environment
 
-    engine = BatteryAIEngine(root / "_inputs" / "artifacts" / "oxford_final", "cuda")
+    engine = BatteryAIEngine(artifact_dir_from_environment(), "cuda")
     result = engine.predict(inference_request).results[0]
     assert result.runtime_device == "cuda"
     assert result.predictive_std >= 0
-    assert result.predicted_soh == pytest.approx(97.0619, abs=0.03)
+    assert result.predicted_soh == pytest.approx(97.7120, abs=0.03)
 
 
 def test_auto_device(root):
     from batteryai_runtime.engine import BatteryAIEngine
+    from services.local_inference.app import artifact_dir_from_environment
 
-    engine = BatteryAIEngine(root / "_inputs" / "artifacts" / "oxford_final", "auto")
+    engine = BatteryAIEngine(artifact_dir_from_environment(), "auto")
     assert engine.device.type == ("cuda" if torch.cuda.is_available() else "cpu")
 
 

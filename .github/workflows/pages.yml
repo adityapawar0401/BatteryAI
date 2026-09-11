@@ -63,6 +63,7 @@ jobs:
           CONTACT_FORM_ENDPOINT: ${{ vars.RELI_CONTACT_FORM_ENDPOINT }}
         run: |
           test -f apps/web/dist/index.html
+          test -f apps/web/dist/failure/index.html
           test -f apps/web/dist/dashboard/index.html
           test -f apps/web/dist/contact/index.html
           grep -R -F -q "$CONTACT_FORM_ENDPOINT" apps/web/dist

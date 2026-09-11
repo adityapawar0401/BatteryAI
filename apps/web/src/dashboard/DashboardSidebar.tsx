@@ -1,4 +1,4 @@
-import { contactPath, landingPath } from "../routes";
+import { contactPath, failurePath, landingPath } from "../routes";
 import { useOverlayDismiss } from "../ui/useOverlayDismiss";
 
 export const dashboardSections = [
@@ -28,6 +28,7 @@ export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
         </ul>
       </nav>
       <div className="dash-sidebar__foot">
+        <a className="mono dash-sidebar__contact" href={failurePath()} onClick={onClose}>Battery Failure Risk</a>
         <a className="mono dash-sidebar__contact" href={contactPath()} onClick={onClose}>Contact Re-Li</a>
         <a className="mono dash-sidebar__back" href={landingPath()} onClick={onClose}>← Back to landing page</a>
       </div>

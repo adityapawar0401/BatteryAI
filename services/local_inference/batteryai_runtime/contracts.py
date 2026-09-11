@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 ACTIVE_EXPERTS = ["core_operational", "diagnostic_curve", "usage_aging", "residual"]
+EV_ACTIVE_EXPERTS = ["core_operational", "usage_aging", "chemistry_geometry", "pack_context", "physics_state", "residual"]
 ALLOWED_MODALITIES = {"C1ch", "C1dc", "OCVch", "OCVdc"}
 
 
@@ -90,6 +92,83 @@ class PredictionResult(StrictModel):
 class InferenceResponse(StrictModel):
     results: list[PredictionResult]
     fallback_occurred: bool = False
+
+
+class FailureSnapshot(StrictModel):
+    battery_chemistry: Literal["LFP", "LTO", "NCA", "NMC"]
+    cell_voltage_avg: float | None = None
+    cell_temperature_avg: float | None = None
+    cycle_count: float | None = None
+    vehicle_age_years: float | None = None
+    odometer_km: float | None = None
+    battery_capacity_kwh: float | None = None
+    pack_voltage: float | None = None
+    cell_voltage_std: float | None = None
+    state_of_charge: float | None = None
+    depth_of_discharge: float | None = None
+    internal_resistance: float | None = None
+    charging_cycles_last_month: float | None = None
+    fast_charge_ratio: float | None = None
+    average_charge_power_kw: float | None = None
+    average_charging_time: float | None = None
+    overnight_charging_ratio: float | None = None
+    home_charging_ratio: float | None = None
+    charging_interruptions: float | None = None
+    overcharge_events: float | None = None
+    average_speed: float | None = None
+    average_trip_distance: float | None = None
+    regenerative_braking_usage: float | None = None
+    highway_driving_ratio: float | None = None
+    daily_distance: float | None = None
+    average_ambient_temperature: float | None = None
+    maximum_temperature: float | None = None
+    minimum_temperature: float | None = None
+    humidity: float | None = None
+    altitude: float | None = None
+    last_service_days: float | None = None
+
+    @model_validator(mode="after")
+    def validate_measurements(self) -> "FailureSnapshot":
+        values = self.model_dump(exclude={"battery_chemistry"})
+        observed = {name: value for name, value in values.items() if value is not None}
+        if not observed:
+            raise ValueError("at least one numeric measurement is required")
+        if any(not math.isfinite(value) for value in observed.values()):
+            raise ValueError("measurements must be finite or explicitly null")
+        if any(value < 0 and "temperature" not in name for name, value in observed.items()):
+            raise ValueError("measurements cannot be negative")
+        for name in ("fast_charge_ratio", "overnight_charging_ratio", "home_charging_ratio", "highway_driving_ratio"):
+            value = observed.get(name)
+            if value is not None and value > 1:
+                raise ValueError(f"{name} must be a fraction from 0 to 1")
+        for name in ("state_of_charge", "depth_of_discharge", "regenerative_braking_usage", "humidity"):
+            value = observed.get(name)
+            if value is not None and value > 100:
+                raise ValueError(f"{name} must be a percentage from 0 to 100")
+        return self
+
+
+class FailureRequest(StrictModel):
+    snapshot: FailureSnapshot
+
+
+class FailureBatchRequest(StrictModel):
+    snapshots: list[FailureSnapshot] = Field(min_length=1, max_length=256)
+
+
+class FailurePrediction(StrictModel):
+    task: Literal["ev_failure"] = "ev_failure"
+    failure_probability: float = Field(ge=0, le=1)
+    failure_flag: bool
+    decision_threshold: float = Field(ge=0, le=1)
+    model_version: str
+    model_sha256: str
+    runtime_device: str
+    inference_ms: float = Field(ge=0)
+
+
+class FailureBatchResponse(StrictModel):
+    results: list[FailurePrediction]
 
 
 class ErrorDetail(StrictModel):

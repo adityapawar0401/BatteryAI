@@ -1,6 +1,6 @@
 # Stable remote deployment
 
-BatteryAI remote mode keeps computation self-hosted. GitHub Pages serves only the static React frontend. Battery-PIMoE, the finalized Oxford checkpoint, CUDA/CPU execution, and optional Ollama `llama3.2:3b` continue to run on the Windows host. The browser calls a stable public HTTPS `*.ts.net` URL exposed by Tailscale Funnel; Funnel proxies only to FastAPI on `127.0.0.1:8000`. Ollama remains on `127.0.0.1:11434` and is never contacted by the browser.
+BatteryAI remote mode keeps computation self-hosted. GitHub Pages serves only the static React frontend. Battery-PIMoE, the selected `oxford_ev_failure_v1_full` checkpoint, CUDA/CPU execution, and optional Ollama `llama3.2:3b` continue to run on the Windows host. The browser calls a stable public HTTPS `*.ts.net` URL exposed by Tailscale Funnel; Funnel proxies only to FastAPI on `127.0.0.1:8000`. Ollama remains on `127.0.0.1:11434` and is never contacted by the browser.
 
 The host PC must remain powered on, connected to Tailscale, and online. This arrangement provides no cloud GPU and no uptime guarantee.
 
@@ -15,7 +15,7 @@ The host PC must remain powered on, connected to Tailscale, and online. This arr
    $env:BATTERYAI_ALLOWED_FRONTEND_ORIGINS = 'https://USERNAME.github.io'
    ```
 
-   The GitHub Pages value is an origin, not a repository path. Loopback Vite origins are retained explicitly for development. Wildcards are rejected.
+   The GitHub Pages value is an origin, not a repository path. Loopback Vite origins are retained explicitly for development. Wildcards are rejected. If the immutable artifact is not in the sibling model repository, also set `BATTERYAI_ARTIFACT_DIR` to the absolute server-side directory named `oxford_ev_failure_v1_full`; that path is never exposed to the browser.
 4. In the GitHub repository, open **Settings → Secrets and variables → Actions → Variables** and create the repository variable `BATTERYAI_REMOTE_API_URL` with that same Funnel origin. This URL is public configuration, not a secret. Never put a pairing token in GitHub variables, secrets, commits, build files, or URLs.
 5. Enable GitHub Pages through GitHub Actions. The existing workflow builds with remote mode enabled and fails if the variable is missing or is not an exact HTTPS `*.ts.net` origin. Repository-subpath hosting remains supported through relative assets.
 

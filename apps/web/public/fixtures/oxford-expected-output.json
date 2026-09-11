@@ -2,18 +2,18 @@
   "results": [
     {
       "request_id": "841e70f9-ee3f-4076-ad2b-a95a2e56e50a",
-      "model_profile": "oxford-v1",
-      "model_sha256": "1d070a4d3e9a8fd3883b7e9110bd9e68226ff98cc0e9692c961286cdb053b610",
+      "model_profile": "oxford-ev-failure-v1-full",
+      "model_sha256": "24f985e578fb8db4610a4019e0e894a4e151e1f888622057c4ef6b356f1647e2",
       "backend": "local-pytorch",
       "runtime_device": "cpu",
       "cell_id": "Cell1",
       "sequence_id": "Cell1:cyc0000->cyc0100",
       "source_checkpoint": "cyc0000",
       "target_checkpoint": "cyc0100",
-      "predicted_soh": 97.06190490722656,
-      "predictive_std": 8.065762519836426,
+      "predicted_soh": 97.70305633544922,
+      "predictive_std": 8.113544464111328,
       "actual_soh": 98.67620878772155,
-      "absolute_error": 1.6143038804949867,
+      "absolute_error": 0.9731524522723309,
       "active_experts": [
         "core_operational",
         "diagnostic_curve",

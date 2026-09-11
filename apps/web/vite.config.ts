@@ -21,7 +21,7 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [react()],
     base,
-    build: { outDir: "dist", sourcemap: true, rollupOptions: { input: { main: "index.html", dashboard: "dashboard/index.html", contact: "contact/index.html" } } },
+    build: { outDir: "dist", sourcemap: true, rollupOptions: { input: { main: "index.html", failure: "failure/index.html", dashboard: "dashboard/index.html", contact: "contact/index.html" } } },
     test: { environment: "jsdom", setupFiles: "./src/test-setup.ts" },
   };
 });

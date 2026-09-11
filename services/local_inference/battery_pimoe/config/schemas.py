@@ -121,6 +121,8 @@ class ExpertConfig(StrictModel):
 
 
 class ModelConfig(StrictModel):
+    failure_task: bool = False
+    ev_input_spec: dict[str, int] = Field(default_factory=dict)
     architecture: ArchitectureConfig = Field(default_factory=ArchitectureConfig)
     router: RouterConfig = Field(default_factory=RouterConfig)
     losses: LossConfig = Field(default_factory=LossConfig)

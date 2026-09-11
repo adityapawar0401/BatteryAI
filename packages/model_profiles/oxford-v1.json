@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "oxford-v1",
-  "title": "Oxford V1",
+  "title": "Battery-PIMoE Oxford + EV Failure V1",
   "target": "Next-observed-checkpoint SOH in percentage points with predictive standard deviation",
-  "modelSha256": "1d070a4d3e9a8fd3883b7e9110bd9e68226ff98cc0e9692c961286cdb053b610",
+  "modelSha256": "24f985e578fb8db4610a4019e0e894a4e151e1f888622057c4ef6b356f1647e2",
   "activeExperts": ["core_operational", "diagnostic_curve", "usage_aging", "residual"],
   "maskedExperts": ["eis_complex", "relaxation_pulse", "thermal_mechanical", "chemistry_geometry", "pack_context", "physics_state"],
   "browserModel": {"available": false, "path": null, "executionProviders": ["webgpu", "wasm"], "reason": "The verified PyTorch model has not passed browser ONNX export and parity gates.", "inputNames": ["core", "diagnostic", "valid", "diagnostic_valid"], "outputNames": ["soh_location_scaled", "soh_scale_scaled"]},
@@ -11,7 +11,7 @@
   "localModel": {"available": true, "defaultEndpoint": "http://127.0.0.1:8000"},
   "limitations": [
     "RUL is not trained or operational.",
-    "Only Oxford-supported experts are active.",
+    "Oxford SOH uses its task-specific expert policy; EV failure uses its separate task-specific policy.",
     "The horizon is the next observed checkpoint, whose physical spacing can vary.",
     "The deployment checkpoint was trained on all eight Oxford cells and has no held-out Oxford test set."
   ],

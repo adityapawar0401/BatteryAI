@@ -15,5 +15,6 @@ export function resolveFromBase(path: string, base: string | undefined = import.
 
 export const landingPath = (base?: string): string => resolveFromBase("", base);
 export const dashboardPath = (base?: string): string => resolveFromBase("dashboard/", base);
+export const failurePath = (base?: string): string => resolveFromBase("failure/", base);
 export const contactPath = (base?: string): string => resolveFromBase("contact/", base);
 export const assetPath = (path: string, base?: string): string => resolveFromBase(path, base);

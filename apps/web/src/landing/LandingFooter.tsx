@@ -1,4 +1,4 @@
-import { contactPath, dashboardPath, landingPath } from "../routes";
+import { contactPath, dashboardPath, failurePath, landingPath } from "../routes";
 
 export const RELI_SUPPORT_EMAIL = "support.reli@gmail.com";
 export const RELI_SUPPORT_MAILTO = `mailto:${RELI_SUPPORT_EMAIL}?subject=Re-Li%20Inquiry`;
@@ -9,6 +9,7 @@ export function LandingFooter() {
       <nav aria-label="Footer">
         <ul className="landing-footer__links mono">
           <li><a href={landingPath()}>Re-Li</a></li>
+          <li><a href={failurePath()}>Failure Risk</a></li>
           <li><a href={dashboardPath()}>Dashboard</a></li>
           <li><a href={contactPath()}>Contact</a></li>
           <li><a href={RELI_SUPPORT_MAILTO}>{RELI_SUPPORT_EMAIL}</a></li>

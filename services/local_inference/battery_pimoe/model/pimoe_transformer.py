@@ -44,6 +44,12 @@ class BatteryPIMoETransformer(nn.Module):
         self.history = BatteryHistoryTransformer(arch.d_model, arch.history_transformer_layers, arch.attention_heads, arch.feed_forward_multiplier, arch.dropout)
         self.soh_head = SOHHead(arch.d_model)
         self.rul_head = RULHead(arch.d_model)
+        if config.failure_task:
+            from battery_pimoe.heads.failure import FailurePredictionHead
+            self.failure_head = FailurePredictionHead(arch.d_model)
+        if config.ev_input_spec:
+            from .ev_input import EVSnapshotInput
+            self.ev_encoder = EVSnapshotInput(**config.ev_input_spec)
 
     def is_expert_active(self, name: str) -> bool:
         return name in self.runtime_active_experts
@@ -79,7 +85,8 @@ class BatteryPIMoETransformer(nn.Module):
         if core_input is None:
             raise KeyError("core_operational input is required")
         for name in self.expert_names:
-            if self.is_expert_active(name):
+            supplied = expert_masks.get(name, {}).get("modality_available")
+            if self.is_expert_active(name) and (supplied is None or bool(supplied.any())):
                 outputs.append(self.experts[name](expert_inputs[name], expert_masks[name]))
             else:
                 outputs.append(self._inactive_expert_output(name, core_input.shape[0], core_input.device, core_input.dtype))
@@ -107,10 +114,16 @@ class BatteryPIMoETransformer(nn.Module):
         return event_state, stats
 
     def forward(self, batch: dict[str, dict[str, dict[str, torch.Tensor]] | torch.Tensor]) -> dict[str, object]:
+        if "ev_features" in batch:
+            inputs, masks = self.ev_encoder(batch["ev_features"], self.expert_names)
+            batch = {**batch, "expert_inputs": inputs, "expert_masks": masks}
         event_state, stats = self.forward_event(batch["expert_inputs"], batch["expert_masks"])  # type: ignore[arg-type]
         event_tokens = event_state.unsqueeze(1)
         elapsed = batch.get("elapsed_time", torch.zeros(event_state.shape[0], 1, device=event_state.device))
         padding = batch.get("history_mask", torch.ones(event_state.shape[0], 1, dtype=torch.bool, device=event_state.device))
         history = self.history(event_tokens, elapsed, padding)
         state = history[:, -1]
-        return {"soh": self.soh_head(state), "rul": self.rul_head(state), "state": state, **stats}
+        output = {"soh": self.soh_head(state), "rul": self.rul_head(state), "state": state, **stats}
+        if hasattr(self, "failure_head"):
+            output["failure"] = self.failure_head(state)
+        return output

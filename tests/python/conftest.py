@@ -28,5 +28,6 @@ def inference_request(root: Path) -> InferenceRequest:
 @pytest.fixture(scope="session")
 def cpu_engine(root: Path):
     from batteryai_runtime.engine import BatteryAIEngine
+    from services.local_inference.app import artifact_dir_from_environment
 
-    return BatteryAIEngine(root / "_inputs" / "artifacts" / "oxford_final", "cpu")
+    return BatteryAIEngine(artifact_dir_from_environment(), "cpu")

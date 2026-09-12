@@ -16,6 +16,28 @@ $ReportDirectory = Join-Path $Root '.dist\remote'
 $StdoutLog = Join-Path $ReportDirectory 'service.out.log'
 $StderrLog = Join-Path $ReportDirectory 'service.err.log'
 $LocalEndpoint = "http://127.0.0.1:$Port"
+$ModelProfilePath = Join-Path $Root 'packages\model_profiles\oxford-v1.json'
+$ExpectedModelSha256 = (
+    Get-Content -Raw -LiteralPath $ModelProfilePath |
+        ConvertFrom-Json
+).modelSha256
+
+function Get-LoopbackListenerOwner {
+    param([int] $ListenerPort)
+
+    $Listeners = @(
+        Get-NetTCPConnection `
+            -State Listen `
+            -LocalPort $ListenerPort `
+            -ErrorAction SilentlyContinue
+    )
+
+    if ($Listeners.Count -eq 0) {
+        return $null
+    }
+
+    return [int] $Listeners[0].OwningProcess
+}
 
 # ---------------------------------------------------------------------------
 # Required local programs and environment
@@ -248,15 +270,28 @@ Remove-Item `
     -Force `
     -ErrorAction SilentlyContinue
 
+$LauncherProcess = $null
 $Service = $null
 $FunnelStarted = $false
+$IntentionalStop = $false
 
 try {
     # -----------------------------------------------------------------------
     # Start FastAPI on loopback only
     # -----------------------------------------------------------------------
 
-    $Service = Start-Process `
+    $ExistingListenerOwner = Get-LoopbackListenerOwner -ListenerPort $Port
+
+    if ($null -ne $ExistingListenerOwner) {
+        throw (
+            "Cannot start BatteryAI because 127.0.0.1:$Port is already " +
+            "in use by process $ExistingListenerOwner. Stop that service " +
+            'or choose another port; BatteryAI will not reuse or stop it.'
+        )
+    }
+
+    $LaunchStartedAt = Get-Date
+    $LauncherProcess = Start-Process `
         -WindowStyle Hidden `
         -FilePath $Python `
         -ArgumentList @(
@@ -277,29 +312,34 @@ try {
     $Ready = $false
 
     do {
-        if ($Service.HasExited) {
-            $ServiceError = ''
-
-            if (Test-Path -LiteralPath $StderrLog) {
-                $ServiceError = Get-Content `
-                    -Raw `
-                    -LiteralPath $StderrLog `
-                    -ErrorAction SilentlyContinue
-            }
-
-            throw (
-                "BatteryAI exited before becoming healthy.`n" +
-                "See: $StderrLog`n" +
-                "$ServiceError"
-            )
-        }
-
         try {
             $Health = Invoke-RestMethod `
                 -Uri "$LocalEndpoint/health" `
                 -TimeoutSec 3
 
-            $Ready = $Health.status -eq 'running'
+            $ListenerOwner = Get-LoopbackListenerOwner `
+                -ListenerPort $Port
+
+            if (
+                $Health.status -eq 'running' -and
+                $Health.model_sha256 -eq $ExpectedModelSha256 -and
+                $null -ne $ListenerOwner
+            ) {
+                $Candidate = Get-Process `
+                    -Id $ListenerOwner `
+                    -ErrorAction Stop
+
+                # The port was proven free immediately before launch. Accept
+                # only a listener created during this launch window, allowing
+                # the venv launcher to hand off to its real Python child.
+                if (
+                    $Candidate.StartTime -ge
+                    $LaunchStartedAt.AddSeconds(-1)
+                ) {
+                    $Service = $Candidate
+                    $Ready = $true
+                }
+            }
         }
         catch {
             $Ready = $false
@@ -312,10 +352,25 @@ try {
     until ($Ready -or (Get-Date) -gt $Deadline)
 
     if (-not $Ready) {
+        $ServiceError = ''
+
+        if (Test-Path -LiteralPath $StderrLog) {
+            $ServiceError = Get-Content `
+                -Raw `
+                -LiteralPath $StderrLog `
+                -ErrorAction SilentlyContinue
+        }
+
         throw (
             'BatteryAI did not become healthy within 180 seconds. ' +
-            "See $StderrLog"
+            "See $StderrLog`n$ServiceError"
         )
+    }
+
+    $Service.Refresh()
+
+    if ($Service.HasExited) {
+        throw 'BatteryAI exited after its readiness check.'
     }
 
     # -----------------------------------------------------------------------
@@ -351,8 +406,44 @@ try {
 
     $FunnelStarted = $true
 
-    # Allow the background Funnel configuration to settle.
-    Start-Sleep -Seconds 2
+    # Verify that the public HTTPS route is serving this healthy BatteryAI
+    # model before declaring the remote task ready.
+    $FunnelDeadline = (Get-Date).AddSeconds(30)
+    $FunnelReady = $false
+
+    do {
+        $Service.Refresh()
+
+        if ($Service.HasExited) {
+            throw 'BatteryAI exited while Funnel readiness was being verified.'
+        }
+
+        try {
+            $PublicHealth = Invoke-RestMethod `
+                -Uri "$ExpectedFunnelUrl/health" `
+                -TimeoutSec 5
+
+            $FunnelReady = (
+                $PublicHealth.status -eq 'running' -and
+                $PublicHealth.model_sha256 -eq $Health.model_sha256
+            )
+        }
+        catch {
+            $FunnelReady = $false
+        }
+
+        if (-not $FunnelReady) {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+    until ($FunnelReady -or (Get-Date) -gt $FunnelDeadline)
+
+    if (-not $FunnelReady) {
+        throw (
+            'Tailscale Funnel did not serve the verified BatteryAI health ' +
+            "response within 30 seconds at $ExpectedFunnelUrl."
+        )
+    }
 
     # -----------------------------------------------------------------------
     # Print BatteryAI startup information, including the pairing token
@@ -405,8 +496,14 @@ try {
         'Press Ctrl+C to stop BatteryAI and disable Funnel.'
     )
 
-    # Keep this launcher alive for as long as the FastAPI service is alive.
-    Wait-Process -Id $Service.Id
+    # This is the owned long-running process. Wait-Process keeps PowerShell and
+    # the VS Code terminal alive while still allowing Ctrl+C to reach finally.
+    Wait-Process -InputObject $Service
+}
+catch [System.Management.Automation.PipelineStoppedException] {
+    # Ctrl+C intentionally stops the blocking wait. Cleanup still runs once in
+    # finally, and the launcher returns success after the owned resources stop.
+    $IntentionalStop = $true
 }
 finally {
     # -----------------------------------------------------------------------
@@ -434,6 +531,30 @@ finally {
         }
     }
 
+    if ($LauncherProcess -and (
+        -not $Service -or
+        $LauncherProcess.Id -ne $Service.Id
+    )) {
+        try {
+            $LauncherProcess.Refresh()
+
+            if (-not $LauncherProcess.HasExited) {
+                Stop-Process `
+                    -Id $LauncherProcess.Id `
+                    -Force `
+                    -ErrorAction SilentlyContinue
+
+                $LauncherProcess.WaitForExit(10000) | Out-Null
+            }
+        }
+        catch {
+            Write-Warning (
+                'Unable to stop the BatteryAI launcher child cleanly: ' +
+                "$($_.Exception.Message)"
+            )
+        }
+    }
+
     # -----------------------------------------------------------------------
     # Disable public Funnel exposure
     # -----------------------------------------------------------------------
@@ -450,4 +571,8 @@ finally {
             )
         }
     }
+}
+
+if ($IntentionalStop) {
+    exit 0
 }

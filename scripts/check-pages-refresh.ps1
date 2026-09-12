@@ -9,7 +9,7 @@ $Server = $null
 
 try {
     if (-not (Test-Path -LiteralPath $Python)) { throw "Workspace Python is unavailable: $Python" }
-    foreach ($Artifact in @('index.html', 'dashboard\index.html', 'contact\index.html')) {
+    foreach ($Artifact in @('index.html', 'dashboard\index.html', 'failure\index.html', 'contact\index.html')) {
         if (-not (Test-Path -LiteralPath (Join-Path $Dist $Artifact))) { throw "Static refresh check requires dist/$Artifact." }
     }
 
@@ -29,7 +29,8 @@ try {
 
     $Checks = @(
         @{ Path = '/BatteryAI/'; Title = 'Re-Li | Battery health intelligence' },
-        @{ Path = '/BatteryAI/dashboard/'; Title = 'Re-Li | Dashboard' },
+        @{ Path = '/BatteryAI/dashboard/'; Title = 'BatteryAI | Dashboard' },
+        @{ Path = '/BatteryAI/failure/'; Title = 'BatteryAI | Dashboard' },
         @{ Path = '/BatteryAI/contact/'; Title = 'Re-Li | Contact' }
     )
 

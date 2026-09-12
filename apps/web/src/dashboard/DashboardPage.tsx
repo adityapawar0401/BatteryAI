@@ -9,18 +9,20 @@ import { parseCsv, readCsvFile, resultsToCsv, validateRows } from "../csv";
 import { applyBuildDeploymentConfig, validateModelProfile, type AppConfig } from "../config";
 import { clientErrorMessage } from "../clientText";
 import { assetPath } from "../routes";
-import type { BackendMode, CurveRow, InferenceResponse, ModelProfile } from "../types";
+import type { BackendMode, CurveRow, FailureResult, InferenceResponse, ModelProfile } from "../types";
 import { DashboardHeader } from "./DashboardHeader";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DataInputSection, type FieldSchema, type Tab } from "./DataInputSection";
 import { OverviewSection } from "./OverviewSection";
-import { ResultsSection } from "./ResultsSection";
+import { emptyOperationalValues, hasOperationalValues, OperationalInputSection } from "./OperationalInputSection";
+import { UnifiedResultsSection } from "./UnifiedResultsSection";
 import { ValidationSection } from "./ValidationSection";
 import { summarizeRows } from "./summary";
 import "../styles/tokens.css";
 import "../styles/components.css";
 import "../styles/analysis.css";
 import "../styles/dashboard.css";
+import "../styles/failure.css";
 
 type JsonSchema = { properties: { rows: { items: { properties: FieldSchema } } } };
 
@@ -39,6 +41,7 @@ export function DashboardPage() {
   const [rows, setRows] = useState<CurveRow[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [validated, setValidated] = useState(false);
+  const [operationalValues, setOperationalValues] = useState<Record<string, string>>(emptyOperationalValues);
   const [notice, setNotice] = useState("Load the example or add your own battery data.");
   // The analysis route is selected internally and is not a customer-facing choice.
   const [mode] = useState<BackendMode>("auto");
@@ -47,6 +50,8 @@ export function DashboardPage() {
   const [paired, setPaired] = useState(false);
   const [busy, setBusy] = useState(false);
   const [response, setResponse] = useState<InferenceResponse | null>(null);
+  const [failureResult, setFailureResult] = useState<FailureResult | null>(null);
+  const [assessmentErrors, setAssessmentErrors] = useState<string[]>([]);
   const [, setLlmStatus] = useState<LocalLlmStatus>("unavailable");
   const [navOpen, setNavOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
@@ -87,16 +92,48 @@ export function DashboardPage() {
     else setErrors([clientErrorMessage(capability.reason ?? "")]);
   }
   async function runAnalysis(): Promise<void> {
-    if (!profile || !browser || !validate()) return;
-    setBusy(true); setResponse(null); abortRef.current = new AbortController();
+    if (!profile || !browser) return;
+    const includeFailure = hasOperationalValues(operationalValues);
+    const includeSoh = rows.length > 0;
+    if (!includeFailure && !includeSoh) { setAssessmentErrors(["Add operational data, diagnostic curve data, or both before analyzing."]); return; }
+    if (!paired) { setAssessmentErrors(["Connect to the analysis service before running an analysis."]); return; }
+    if (includeSoh && !validate()) return;
+
+    setBusy(true); setResponse(null); setFailureResult(null); setAssessmentErrors([]); abortRef.current = new AbortController();
+    const nextErrors: string[] = [];
+    let completed = 0;
+
     try {
-      let result: InferenceResponse;
-      if (mode === "local") { if (!paired) throw new Error("Pair the local engine before sending battery data."); result = await local.infer(rows, abortRef.current.signal); }
-      else if (mode === "browser") result = await browser.infer(rows, abortRef.current.signal);
-      else result = await new AutoInferenceProvider(browser, local, paired).infer(rows, abortRef.current.signal);
-      setResponse(result); setNotice(`${result.results.length} result${result.results.length === 1 ? "" : "s"} completed.`);
-    } catch (error) { setErrors([clientErrorMessage(error instanceof Error ? error.message : "")]); }
-    finally { setBusy(false); }
+      // Run sequentially because both endpoints intentionally share one guarded
+      // model instance and one inference slot in the backend process.
+      if (includeFailure) {
+        try {
+          const snapshot = Object.fromEntries(Object.entries(operationalValues).map(([name, value]) => [name, name === "battery_chemistry" ? value : value.trim() === "" ? null : Number(value)]));
+          const failureResponse = await fetch(`${endpoint.replace(/\/$/, "")}/api/predict/failure`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-BatteryAI-Token": token },
+            body: JSON.stringify({ snapshot }),
+            signal: abortRef.current.signal,
+          });
+          const data = await failureResponse.json().catch(() => null);
+          if (!failureResponse.ok) throw new Error(data?.detail?.message ?? data?.message ?? `HTTP ${failureResponse.status}`);
+          if (data?.model_sha256 !== profile.modelSha256 || data?.model_version !== "oxford_ev_failure_v1_full") throw new Error("Analysis service model identity does not match this dashboard.");
+          setFailureResult(data as FailureResult); completed += 1;
+        } catch (error) { nextErrors.push(`Failure Risk: ${clientErrorMessage(error instanceof Error ? error.message : "")}`); }
+      }
+
+      if (includeSoh) {
+        try {
+          let result: InferenceResponse;
+          if (mode === "local") result = await local.infer(rows, abortRef.current.signal);
+          else if (mode === "browser") result = await browser.infer(rows, abortRef.current.signal);
+          else result = await new AutoInferenceProvider(browser, local, paired).infer(rows, abortRef.current.signal);
+          setResponse(result); completed += 1;
+        } catch (error) { nextErrors.push(`State of Health: ${clientErrorMessage(error instanceof Error ? error.message : "")}`); }
+      }
+      setAssessmentErrors(nextErrors);
+      setNotice(completed ? `${completed} assessment output${completed === 1 ? "" : "s"} completed.` : "The assessment could not be completed.");
+    } finally { setBusy(false); }
   }
   function editRow(index: number, field: keyof CurveRow, value: string): void {
     setValidated(false);
@@ -109,7 +146,7 @@ export function DashboardPage() {
     setTab("table");
   }
   function clear(): void {
-    setRows([]); setCsvText(""); setResponse(null); setErrors([]); setValidated(false); setNotice("Cleared.");
+    setRows([]); setCsvText(""); setResponse(null); setErrors([]); setValidated(false); setNotice("Diagnostic curve data cleared.");
   }
 
   if (startupError) return <main className="dash-startup"><section className="dash-error"><h1>Re-Li is unavailable</h1><p>{startupError}</p></section></main>;
@@ -119,18 +156,19 @@ export function DashboardPage() {
     <a className="skip-link" href="#overview">Skip to content</a>
     <DashboardSidebar open={navOpen} onClose={closeNav} />
     <div className="dash-main">
-      <DashboardHeader connected={paired} busy={busy} completed={!!response} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
+      <DashboardHeader connected={paired} busy={busy} completed={!!response || !!failureResult} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
       <main className="dash-body">
         <AnalysisPageShell
-          eyebrow="SOH capability"
-          title="SOH Analysis"
-          description="Estimate battery state of health and predictive uncertainty from a supported diagnostic curve."
+          eyebrow="Unified battery assessment"
+          title="BatteryAI Dashboard"
+          description="Provide operational data, diagnostic curve data, or both to evaluate battery health in one coherent assessment."
         >
           <OverviewSection
-          response={response} connected={paired} accessCode={token}
+          completed={!!response || !!failureResult} connected={paired} accessCode={token}
           onAccessCodeChange={(value) => { setToken(value); setPaired(false); }} onConnect={connect}
-          rowCount={rows.length} validated={validated} busy={busy}
+          rowCount={rows.length} hasOperationalInput={hasOperationalValues(operationalValues)} validated={validated} busy={busy}
         />
+        <OperationalInputSection values={operationalValues} onChange={(values) => { setOperationalValues(values); setFailureResult(null); setAssessmentErrors([]); }} />
         <DataInputSection
           tab={tab} onTabChange={setTab} csvText={csvText} onCsvTextChange={setCsvText} onAcceptText={acceptText}
           onUpload={(file) => readCsvFile(file).then(acceptText).catch((error) => setErrors([clientErrorMessage(error instanceof Error ? error.message : "")]))}
@@ -138,8 +176,9 @@ export function DashboardPage() {
           onEditRow={editRow} onAddRow={addRow} onValidate={validate} onClear={clear} onLoadExample={loadExample}
         />
         <ValidationSection summary={summary} errors={errors} validated={validated} />
-        <ResultsSection
-          connected={paired} busy={busy} rowCount={rows.length} response={response}
+        <UnifiedResultsSection
+          busy={busy} hasOperationalInput={hasOperationalValues(operationalValues)} hasDiagnosticInput={rows.length > 0}
+          failureResult={failureResult} sohResponse={response} errors={assessmentErrors}
           onRun={runAnalysis} onCancel={() => abortRef.current?.abort()}
           onExportJson={() => download("Re-Li-results.json", JSON.stringify(response, null, 2), "application/json")}
           onExportCsv={() => download("Re-Li-results.csv", resultsToCsv((response?.results ?? []) as unknown as Record<string, unknown>[]), "text/csv")}

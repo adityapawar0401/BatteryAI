@@ -1,4 +1,4 @@
-import { contactPath, dashboardPath, failurePath } from "../routes";
+import { contactPath, dashboardPath } from "../routes";
 import { CursorHalo } from "./CursorHalo";
 import { LandingFooter } from "./LandingFooter";
 import { LandingNav } from "./LandingNav";
@@ -53,17 +53,16 @@ export function LandingPage() {
           <p className="landing-hero__tagline">Battery health intelligence for better lifecycle decisions.</p>
           <div className="landing-hero__body">
             <p className="landing-hero__lede">
-              Assess EV battery failure risk from a supported telemetry snapshot, or estimate State of Health from supported characterization data.
+              Assess EV battery Failure Risk and State of Health together from their supported input workflows.
             </p>
             <ul className="landing-hero__spec mono">
               <li>[01] Snapshot failure probability</li>
-              <li>[02] Separate State of Health analysis</li>
+              <li>[02] State of Health and uncertainty</li>
               <li>[03] Validated, leak-free inputs</li>
             </ul>
           </div>
           <div className="landing-hero__actions">
-            <a className="btn" href={failurePath()}>Assess Failure Risk</a>
-            <a className="btn btn--secondary" href={dashboardPath()}>SOH Analysis</a>
+            <a className="btn" href={dashboardPath()}>Open Dashboard</a>
             <a className="btn btn--secondary" href={contactPath()}>Contact Us</a>
           </div>
         </div>

@@ -124,6 +124,9 @@ describe("landing page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
     expect(screen.getByRole("button", { name: "Close menu" })).toHaveAttribute("aria-expanded", "true");
     expect(document.getElementById("landing-menu")).not.toHaveAttribute("hidden");
+    expect(within(primary).getAllByRole("link", { name: "Dashboard" }).length).toBeGreaterThan(0);
+    expect(within(primary).queryByRole("link", { name: "Failure Risk" })).not.toBeInTheDocument();
+    expect(within(primary).queryByRole("link", { name: "SOH Analysis" })).not.toBeInTheDocument();
   });
 
   it("shows the authorized contact information in the compact footer", () => {

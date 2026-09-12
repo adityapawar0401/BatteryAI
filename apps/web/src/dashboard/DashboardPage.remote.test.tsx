@@ -20,7 +20,7 @@ describe("remote production shell", () => {
     });
 
     render(<DashboardPage />);
-    await screen.findByRole("heading", { name: "Battery health analysis" });
+    await screen.findByRole("heading", { name: "Battery health assessment" });
 
     // Only the three static configuration files are fetched before the user connects.
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
@@ -55,7 +55,7 @@ describe("remote production shell", () => {
     });
 
     render(<DashboardPage />);
-    await screen.findByRole("heading", { name: "Battery health analysis" });
+    await screen.findByRole("heading", { name: "Battery health assessment" });
     fireEvent.change(screen.getByLabelText("Access code"), { target: { value: "code-123" } });
     fireEvent.click(screen.getByRole("button", { name: "Connect" }));
 

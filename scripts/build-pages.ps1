@@ -15,6 +15,7 @@ try {
     $Dist = Join-Path $Web 'dist'
     if (-not (Test-Path -LiteralPath (Join-Path $Dist 'index.html'))) { throw 'GitHub Pages artifact has no landing index.html.' }
     if (-not (Test-Path -LiteralPath (Join-Path $Dist 'dashboard\index.html'))) { throw 'GitHub Pages artifact has no dashboard/index.html, so /dashboard/ would 404 on direct refresh.' }
+    if (-not (Test-Path -LiteralPath (Join-Path $Dist 'failure\index.html'))) { throw 'GitHub Pages artifact has no failure/index.html for the legacy dashboard redirect.' }
     if (-not (Test-Path -LiteralPath (Join-Path $Dist 'contact\index.html'))) { throw 'GitHub Pages artifact has no contact/index.html, so /contact/ would 404 on direct refresh.' }
     $Files = Get-ChildItem -LiteralPath $Dist -Recurse -File
     $Forbidden = $Files | Where-Object {
@@ -39,18 +40,17 @@ try {
     # Customer-facing HTML must never carry internal implementation vocabulary.
     # Bundled JS keeps API contract strings, which is required for the app to work.
     $Markup = Get-ChildItem -LiteralPath $Dist -Recurse -File -Filter '*.html'
-    $LegacyBrandMarkup = $Markup | Select-String -Pattern '(?<!/)BatteryAI|BATTERY/AI|Battery AI'
-    if ($LegacyBrandMarkup) { throw "Legacy BatteryAI product branding found in public markup: $($LegacyBrandMarkup[0].Path) -> $($LegacyBrandMarkup[0].Line.Trim())" }
-    # Scan exact formerly public phrases in all text artifacts while allowing
-    # compatibility identifiers such as X-BatteryAI-Token, BATTERYAI_*,
-    # batteryai_runtime, and the required /BatteryAI/ Pages base path.
-    $LegacyBrandText = $Text | Select-String -Pattern 'BatteryAI dashboard|BatteryAI CSV format|BatteryAI is unavailable|Loading BatteryAI|BATTERY/AI|BatteryAI estimates battery state of health'
-    if ($LegacyBrandText) { throw "Legacy client-facing BatteryAI phrase found in static build: $($LegacyBrandText[0].Path)" }
     $InternalText = $Markup | Select-String -Pattern 'Oxford|PIMoE|Ollama|llama3\.2|ONNX|FastAPI|Tailscale|Funnel|GitHub Pages|CUDA|SHA-256|active experts|masked experts|model profile|RUL |next-observed-checkpoint|loopback|host computer'
     if ($InternalText) { throw "Internal implementation term found in rendered markup: $($InternalText[0].Path) -> $($InternalText[0].Line.Trim())" }
+    $DashboardCssFile = Get-ChildItem -LiteralPath (Join-Path $Dist 'assets') -File -Filter 'dashboard-*.css' | Select-Object -First 1
+    $DashboardCss = Get-Content -Raw -LiteralPath $DashboardCssFile.FullName
+    if ($DashboardCss -notmatch 'minmax\(min\(100%,24rem\),1fr\)' -or $DashboardCss -notmatch '\.dash-main\{[^}]*min-width:0') {
+        throw 'Dashboard responsive containment rules are missing from the production artifact.'
+    }
     Write-Host "GitHub Pages artifact verified: $Dist"
     Write-Host '  landing   -> dist/index.html'
     Write-Host '  dashboard -> dist/dashboard/index.html'
+    Write-Host '  failure   -> dist/failure/index.html (dashboard redirect)'
     Write-Host '  contact   -> dist/contact/index.html'
 }
 finally {

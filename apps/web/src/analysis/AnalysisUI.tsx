@@ -1,15 +1,5 @@
 import type { ReactNode } from "react";
 
-const expertLabels: Record<string, string> = {
-  core_operational: "Core operational",
-  diagnostic_curve: "Diagnostic curve",
-  usage_aging: "Usage / aging",
-  chemistry_geometry: "Chemistry",
-  pack_context: "Pack context",
-  physics_state: "Physics state",
-  residual: "Residual",
-};
-
 interface AnalysisPageShellProps {
   eyebrow: string;
   title: string;
@@ -91,28 +81,16 @@ export function MetricTile({ label, value, unit, primary = false }: MetricTilePr
   </div>;
 }
 
-interface ModelIdentityProps {
-  task: string;
-  modelVersion: string;
-  modelSha256: string;
-  activeExperts: string[];
-}
-
-export function ModelIdentity({ task, modelVersion, modelSha256, activeExperts }: ModelIdentityProps) {
+export function ModelIdentity() {
   return <details className="analysis-model">
-    <summary>Model details</summary>
+    <summary>Model / analysis details</summary>
     <div className="analysis-model__body">
-      <p className="analysis-model__name mono">Battery-PIMoE</p>
-      <p className="analysis-model__version">Oxford + EV Failure descendant</p>
+      <p className="analysis-model__name mono">BatteryAI production model</p>
+      <p className="analysis-model__version">One shared production model supports both assessment outputs.</p>
       <dl className="matrix analysis-model__facts">
-        <div className="matrix__row"><dt>Task</dt><dd>{task}</dd></div>
-        <div className="matrix__row"><dt>Version</dt><dd className="mono">{modelVersion}</dd></div>
-        <div className="matrix__row"><dt>Model ID</dt><dd className="mono">{modelSha256.slice(0, 12)}</dd></div>
+        <div className="matrix__row"><dt>Operational inputs</dt><dd>Failure Risk</dd></div>
+        <div className="matrix__row"><dt>Diagnostic curve inputs</dt><dd>State of Health</dd></div>
       </dl>
-      <p className="analysis-model__label mono">Active experts</p>
-      <ul className="chips">
-        {activeExperts.map((expert) => <li className="chip" key={expert}>{expertLabels[expert] ?? expert}</li>)}
-      </ul>
     </div>
   </details>;
 }

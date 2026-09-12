@@ -12,6 +12,34 @@ from services.local_inference import app as app_module
 from services.local_inference.deployment import DeploymentConfig, load_deployment_config, validate_remote_api_url
 
 
+def test_remote_launcher_requires_owned_listener_and_blocking_lifecycle(root):
+    script = (root / "scripts" / "start-remote.ps1").read_text(encoding="utf-8")
+    assert "Get-LoopbackListenerOwner" in script
+    assert "$Service = $Candidate" in script
+    assert "$Candidate.StartTime" in script
+    assert "$LauncherProcess = Start-Process" in script
+    assert "$PublicHealth.model_sha256 -eq $Health.model_sha256" in script
+    assert "Wait-Process -InputObject $Service" in script
+    assert "catch [System.Management.Automation.PipelineStoppedException]" in script
+    assert "Start-Sleep -Seconds 3600" not in script
+    assert script.index("$Service = $Candidate") < script.index("tailscale.exe funnel --bg")
+    assert script.index("$PublicHealth.model_sha256 -eq $Health.model_sha256") < script.index("BATTERYAI_REMOTE_STARTED=TRUE")
+    assert script.index("Wait-Process -InputObject $Service") < script.rindex("finally {")
+
+
+def test_remote_cleanup_is_explicit_scoped_and_does_not_embed_secrets(root):
+    launcher = (root / "scripts" / "start-remote.ps1").read_text(encoding="utf-8")
+    stopper = (root / "scripts" / "stop-remote.ps1").read_text(encoding="utf-8")
+    tasks = (root / ".vscode" / "tasks.json").read_text(encoding="utf-8")
+    assert "Stop-Process" in launcher and "-Id $Service.Id" in launcher
+    assert "tailscale.exe funnel reset" in stopper
+    assert "BATTERYAI_REMOTE_STOPPED=TRUE" in stopper
+    assert "instanceLimit\":1" in tasks.replace(" ", "")
+    assert '"isBackground":true' not in tasks.split('"BatteryAI: Start Remote"', 1)[1].split("}", 1)[0]
+    assert "BATTERYAI_PAIRING_TOKEN" not in tasks
+    assert "Pairing token:" not in stopper + tasks
+
+
 def local_config(**updates) -> DeploymentConfig:
     values = {
         "remote_enabled": False,

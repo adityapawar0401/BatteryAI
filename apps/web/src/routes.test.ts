@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assetPath, contactPath, dashboardPath, failurePath, landingPath, normalizeBase, resolveFromBase } from "./routes";
+import failureHtml from "../failure/index.html?raw";
 
 describe("repository-subpath routing", () => {
   it("resolves production GitHub Pages routes under the repository base", () => {
@@ -14,6 +15,7 @@ describe("repository-subpath routing", () => {
     expect(dashboardPath("/")).toBe("/dashboard/");
     expect(contactPath("/")).toBe("/contact/");
     expect(assetPath("fixtures/oxford-real-example.csv", "/")).toBe("/fixtures/oxford-real-example.csv");
+    expect(failurePath("/")).toBe("/dashboard/#failure-risk");
   });
 
   it("normalizes bases that lack delimiters instead of emitting root-relative or doubled slashes", () => {
@@ -35,5 +37,12 @@ describe("repository-subpath routing", () => {
   it("uses the build-time base by default", () => {
     expect(dashboardPath()).toBe(`${normalizeBase(import.meta.env.BASE_URL)}dashboard/`);
     expect(contactPath()).toBe(`${normalizeBase(import.meta.env.BASE_URL)}contact/`);
+  });
+
+  it("keeps the old failure entry as a direct-route dashboard redirect", () => {
+    const document = new DOMParser().parseFromString(failureHtml, "text/html");
+    expect(document.querySelector('meta[http-equiv="refresh"]')?.getAttribute("content")).toBe("0; url=../dashboard/#failure-risk");
+    expect(document.querySelector("a")?.getAttribute("href")).toBe("../dashboard/#failure-risk");
+    expect(document.querySelector("#root")?.textContent).not.toContain("Battery Failure Risk");
   });
 });

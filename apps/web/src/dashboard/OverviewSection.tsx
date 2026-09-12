@@ -1,15 +1,15 @@
-import type { InferenceResponse } from "../types";
-import { AnalysisSection, MetricTile, PredictionResultCard } from "../analysis/AnalysisUI";
+import { AnalysisSection } from "../analysis/AnalysisUI";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { StatusBadge, type StatusTone } from "./StatusBadge";
 
 interface OverviewSectionProps {
-  response: InferenceResponse | null;
+  completed: boolean;
   connected: boolean;
   accessCode: string;
   onAccessCodeChange: (value: string) => void;
   onConnect: () => void;
   rowCount: number;
+  hasOperationalInput: boolean;
   validated: boolean;
   busy: boolean;
 }
@@ -17,27 +17,27 @@ interface OverviewSectionProps {
 type StepState = { label: string; state: string; tone: StatusTone };
 
 export function OverviewSection(props: OverviewSectionProps) {
-  const { response, connected, rowCount, validated, busy } = props;
-  const result = response?.results[0] ?? null;
+  const { completed, connected, rowCount, hasOperationalInput, validated, busy } = props;
+  const hasInput = hasOperationalInput || rowCount > 0;
 
   const steps: StepState[] = [
     { label: "Connection", state: connected ? "Connected" : "Disconnected", tone: connected ? "healthy" : "warning" },
-    { label: "Battery data", state: rowCount ? `${rowCount.toLocaleString()} rows added` : "No data yet", tone: rowCount ? "healthy" : "idle" },
-    { label: "Validation", state: validated ? "Validation passed" : rowCount ? "Validation required" : "Waiting for data", tone: validated ? "healthy" : rowCount ? "warning" : "idle" },
-    { label: "Analysis", state: busy ? "Processing" : response ? "Completed" : connected && validated ? "Ready" : "Not ready", tone: response || busy ? "healthy" : "idle" },
+    { label: "Battery data", state: hasInput ? "Input available" : "No data yet", tone: hasInput ? "healthy" : "idle" },
+    { label: "Diagnostic validation", state: !rowCount ? "Not required" : validated ? "Validation passed" : "Validation required", tone: !rowCount || validated ? "healthy" : "warning" },
+    { label: "Assessment", state: busy ? "Processing" : completed ? "Completed" : connected && hasInput ? "Ready" : "Not ready", tone: completed || busy ? "healthy" : "idle" },
   ];
 
   const nextAction = !connected
     ? "Connect with your access code to begin."
-    : !rowCount
+    : !hasInput
       ? "Add battery data to analyze."
-      : !validated
+      : rowCount > 0 && !validated
         ? "Validate your data before running the analysis."
-        : !response
+        : !completed
           ? "Everything is ready. Run the analysis."
           : "Generate insights for this result, or analyze another dataset.";
 
-  return <AnalysisSection id="overview" eyebrow="Overview" title="Battery health analysis" description="Connect securely, add a supported diagnostic curve, validate it, and run the SOH analysis.">
+  return <AnalysisSection id="overview" eyebrow="Overview" title="Battery health assessment" description="Connect securely, add either supported input workflow, and run one unified assessment.">
 
     <ConnectionPanel connected={connected} accessCode={props.accessCode} onAccessCodeChange={props.onAccessCodeChange} onConnect={props.onConnect} />
 
@@ -49,15 +49,5 @@ export function OverviewSection(props: OverviewSectionProps) {
       </li>)}
     </ul>
     <p className="dash-notice" role="status">{nextAction}</p>
-
-    {result && <>
-      <h3 className="dash-subtitle mono">Latest result</h3>
-      <div className="analysis-result-grid">
-        <PredictionResultCard>
-          <p className="metric-card__id mono">{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p>
-          <MetricTile label="Predicted SOH" value={`${result.predicted_soh.toFixed(2)}%`} unit="Estimated state of health" primary />
-        </PredictionResultCard>
-      </div>
-    </>}
   </AnalysisSection>;
 }

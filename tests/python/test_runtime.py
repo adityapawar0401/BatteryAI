@@ -52,6 +52,32 @@ def test_tasks_share_model_parameters_but_keep_distinct_preprocessing_and_masks(
     assert tuple(cpu_engine.model.runtime_active_experts) == tuple(ACTIVE_EXPERTS)
 
 
+def test_ev_row_16_regression_and_failure_then_soh_order(cpu_engine, inference_request):
+    snapshot = FailureSnapshot(
+        battery_chemistry="NMC", battery_capacity_kwh=86.03, odometer_km=109845,
+        cycle_count=224, state_of_charge=50.3, depth_of_discharge=35.05,
+        cell_voltage_avg=3.4374, cell_voltage_std=0.01371, pack_voltage=859.36,
+        cell_temperature_avg=15.3, internal_resistance=0.4487,
+        charging_cycles_last_month=6, fast_charge_ratio=0.182,
+        average_charging_time=202.4, overnight_charging_ratio=0.309,
+        home_charging_ratio=0.617, charging_interruptions=0, overcharge_events=0,
+        average_speed=39.1, regenerative_braking_usage=57.4,
+        highway_driving_ratio=0.23, daily_distance=92.7,
+        average_ambient_temperature=9.1, maximum_temperature=15.4,
+        minimum_temperature=-1.9, humidity=77.2, altitude=341.1,
+        last_service_days=73,
+    )
+    first_failure = cpu_engine.predict_failure([snapshot])[0]
+    soh = cpu_engine.predict(inference_request).results[0]
+    repeated_failure = cpu_engine.predict_failure([snapshot])[0]
+
+    assert first_failure.failure_probability == pytest.approx(0.0011102949501946568, abs=2e-9)
+    assert first_failure.decision_threshold == pytest.approx(0.3624247610569, abs=1e-12)
+    assert repeated_failure.failure_probability == pytest.approx(first_failure.failure_probability, abs=1e-9)
+    assert soh.predicted_soh == pytest.approx(97.70305633544922, abs=2e-4)
+    assert soh.predictive_std == pytest.approx(8.113544464111328, abs=2e-4)
+    assert tuple(cpu_engine.model.runtime_active_experts) == tuple(EV_ACTIVE_EXPERTS)
+
 def test_each_task_consumes_only_its_prediction_head(monkeypatch, cpu_engine, inference_request):
     def task_specific_output(_model, batch):
         if "ev_features" in batch:

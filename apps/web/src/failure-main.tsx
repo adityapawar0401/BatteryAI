@@ -1,5 +1,3 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { FailureRiskPage } from "./failure/FailureRiskPage";
+import { dashboardPath } from "./routes";
 
-createRoot(document.getElementById("root")!).render(<StrictMode><FailureRiskPage /></StrictMode>);
+window.location.replace(`${dashboardPath()}#failure-risk`);

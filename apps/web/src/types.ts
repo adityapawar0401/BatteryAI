@@ -23,6 +23,16 @@ export interface PredictionResult {
 }
 export interface InferenceResponse { results: PredictionResult[]; fallback_occurred: boolean }
 
+export interface FailureResult {
+  task: "ev_failure";
+  failure_probability: number;
+  failure_flag: boolean;
+  decision_threshold: number;
+  model_version: string;
+  model_sha256: string;
+  active_experts: string[];
+}
+
 export interface ModelProfile {
   schemaVersion: 1; id: string; title: string; target: string; modelSha256: string; activeExperts: string[]; maskedExperts: string[];
   browserModel: { available: boolean; path: string | null; executionProviders: string[]; reason: string; inputNames?: string[]; outputNames?: string[] };

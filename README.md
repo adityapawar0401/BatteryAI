@@ -11,10 +11,9 @@ Start with [START_HERE.md](START_HERE.md). The static React application can be h
 | | Public URL | Local development |
 | --- | --- | --- |
 | Landing page | `https://adityapawar0401.github.io/BatteryAI/` | `http://localhost:5173/` |
-| Failure Risk | `https://adityapawar0401.github.io/BatteryAI/failure/` | `http://localhost:5173/failure/` |
-| SOH Analysis | `https://adityapawar0401.github.io/BatteryAI/dashboard/` | `http://localhost:5173/dashboard/` |
+| Dashboard | `https://adityapawar0401.github.io/BatteryAI/dashboard/` | `http://localhost:5173/dashboard/` |
 
-The failure page submits only the leak-free snapshot contract to `POST /api/predict/failure`. The SOH dashboard retains the Oxford curve workflow at `POST /v1/infer`. See [docs/ev-failure.md](docs/ev-failure.md) and [docs/input-contract.md](docs/input-contract.md).
+The unified dashboard submits the leak-free operational snapshot to `POST /api/predict/failure` and the separate diagnostic curve contract to `POST /v1/infer`. The old `/failure/` URL redirects to `/dashboard/#failure-risk`. See [docs/ev-failure.md](docs/ev-failure.md) and [docs/input-contract.md](docs/input-contract.md).
 
 There is **no login, sign-up, or account**. The dashboard still requires explicit pairing with your BatteryAI service using the pairing token it prints at startup; pairing is not a user login and the token stays in `sessionStorage` for that browser tab only. GitHub Pages serves static files only — the host computer runs the model, so it must stay online for remote use. See [docs/github-pages.md](docs/github-pages.md).
 
@@ -22,7 +21,7 @@ The public UI is deliberately customer-facing: it presents outcomes and workflow
 
 ## Repository map
 
-- `apps/web`: React, TypeScript, Vite static frontend (landing, failure risk, SOH dashboard and contact).
+- `apps/web`: React, TypeScript, Vite static frontend (landing, unified battery dashboard, legacy redirect and contact).
 - `services/local_inference`: FastAPI service and the minimal copied model runtime.
 - `packages/contracts`: canonical Oxford row schema.
 - `packages/model_profiles`: model capabilities and limitations.

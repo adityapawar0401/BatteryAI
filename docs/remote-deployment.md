@@ -27,7 +27,7 @@ Run **BatteryAI: Start Remote** or:
 powershell -ExecutionPolicy Bypass -File scripts\start-remote.ps1 -Device auto
 ```
 
-The launcher validates the installed Tailscale client and its live `funnel --help`, validates the stable hostname and GitHub Pages origin, starts FastAPI on loopback, waits for local health, then enables HTTPS Funnel with the installed CLI's supported background syntax. It prints the stable URL, local endpoint, new startup pairing token, numerical device, checkpoint hash, and Ollama status. Ollama may be unavailable; numerical inference still starts.
+The launcher validates the installed Tailscale client and its live `funnel --help`, validates the stable hostname and GitHub Pages origin, and refuses to reuse an existing listener on the selected loopback port. It starts FastAPI, requires both a healthy response and proof that the listener belongs to the launched child PID, then enables HTTPS Funnel. The launcher blocks on that owned child until Ctrl+C or an intentional task stop, after which its single cleanup path disables Funnel and stops only that child. It prints the stable URL, local endpoint, new startup pairing token, numerical device, checkpoint hash, and Ollama status. Ollama may be unavailable; numerical inference still starts.
 
 Copy the token privately to the intended user. In the GitHub Pages UI, verify the locked backend URL, enter the token, and explicitly pair. The token is held only in browser `sessionStorage` and disappears when the tab session ends. Restarting the BatteryAI service creates a new cryptographically random token and invalidates the old one.
 

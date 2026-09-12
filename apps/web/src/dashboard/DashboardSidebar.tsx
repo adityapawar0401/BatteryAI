@@ -1,11 +1,12 @@
-import { contactPath, failurePath, landingPath } from "../routes";
+import { contactPath, landingPath } from "../routes";
 import { useOverlayDismiss } from "../ui/useOverlayDismiss";
 
 export const dashboardSections = [
   { id: "overview", label: "Overview", glyph: "◈" },
-  { id: "data", label: "Data", glyph: "▣" },
+  { id: "failure-risk", label: "Operational input", glyph: "▦" },
+  { id: "diagnostic-data", label: "Diagnostic input", glyph: "▣" },
   { id: "validation", label: "Validation", glyph: "⟁" },
-  { id: "results", label: "Results", glyph: "∿" },
+  { id: "assessment", label: "Assessment", glyph: "∿" },
   { id: "insights", label: "Insights", glyph: "✦" },
 ];
 
@@ -28,7 +29,6 @@ export function DashboardSidebar({ open, onClose }: DashboardSidebarProps) {
         </ul>
       </nav>
       <div className="dash-sidebar__foot">
-        <a className="mono dash-sidebar__contact" href={failurePath()} onClick={onClose}>Battery Failure Risk</a>
         <a className="mono dash-sidebar__contact" href={contactPath()} onClick={onClose}>Contact Re-Li</a>
         <a className="mono dash-sidebar__back" href={landingPath()} onClick={onClose}>← Back to landing page</a>
       </div>

@@ -52,7 +52,7 @@ export function DataInputSection(props: DataInputSectionProps) {
   const seriesFor = (key: "voltage_V" | "capacity_Ah" | "temperature_K"): SeriesPoint[] =>
     plotted.map((row) => ({ x: row.point_index, y: row[key] }));
 
-  return <AnalysisSection id="data" eyebrow="Input" title="Diagnostic curve data" description="Upload, paste, or review the supported diagnostic-curve format." headerAside={
+  return <AnalysisSection id="diagnostic-data" eyebrow="Diagnostic input" title="Diagnostic curve / SOH data" description="Supply this separate curve format to include State of Health and uncertainty in the assessment." headerAside={
     <div className="dash-actions">
         <a className="btn btn--secondary" href={assetPath("fixtures/oxford-template.csv")} download>Download template</a>
         <button type="button" className="btn btn--secondary" onClick={props.onLoadExample}>Load example</button>

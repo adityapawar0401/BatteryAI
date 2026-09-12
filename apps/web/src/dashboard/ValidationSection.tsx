@@ -12,7 +12,7 @@ export function ValidationSection({ summary, errors, validated }: ValidationSect
   const tone = errors.length ? "warning" : validated ? "healthy" : "idle";
   const state = errors.length ? "Problems found" : validated ? "Validation passed" : "Validation required";
 
-  return <AnalysisSection id="validation" eyebrow="Validation" title="Data validation" description="Validation confirms that the supplied battery data is complete and structured correctly before analysis." headerAside={<StatusBadge tone={tone} label="Status">{state}</StatusBadge>}>
+  return <AnalysisSection id="validation" eyebrow="Diagnostic validation" title="Diagnostic data validation" description="Validation confirms that supplied diagnostic curve data is complete and structured correctly before analysis." headerAside={<StatusBadge tone={tone} label="Status">{state}</StatusBadge>}>
 
     {!summary
       ? <p className="dash-empty">Add battery data to see what the dataset contains.</p>

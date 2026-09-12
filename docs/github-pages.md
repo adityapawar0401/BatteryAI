@@ -8,9 +8,9 @@ Create the Actions repository variable `RELI_CONTACT_FORM_ENDPOINT` with the pub
 
 For local development, set `VITE_RELI_CONTACT_FORM_ENDPOINT` before starting or building the frontend. If it is absent, the Contact page starts normally and offers the direct `support.reli@gmail.com` email fallback without making a request.
 
-## Three static pages
+## Static routes
 
-The frontend is a Vite multi-page build with three real HTML entries, so all public routes are plain static files:
+The frontend is a Vite multi-page build with real HTML entries, so all public routes are plain static files. `/dashboard/` is the only primary analysis destination; `/failure/` is retained only as a backward-compatible redirect to `/dashboard/#failure-risk`.
 
 | Route | Artifact file | Entry |
 | --- | --- | --- |
@@ -18,9 +18,9 @@ The frontend is a Vite multi-page build with three real HTML entries, so all pub
 | `https://adityapawar0401.github.io/BatteryAI/dashboard/` | `dist/dashboard/index.html` | `apps/web/src/dashboard-main.tsx` → `DashboardPage` |
 | `https://adityapawar0401.github.io/BatteryAI/contact/` | `dist/contact/index.html` | `apps/web/src/contact-main.tsx` → `ContactPage` |
 
-Because the nested routes resolve to real `index.html` files, direct navigation and browser refresh work without a Pages 404 and without an SPA fallback or a `404.html` redirect trick.
+The legacy redirect also has a real `failure/index.html` artifact. Because the nested routes resolve to real files, direct navigation and browser refresh work without a Pages 404 and without an SPA fallback or a `404.html` redirect trick.
 
-Local development serves the same entries from the Vite dev server at `http://localhost:5173/`, `http://localhost:5173/dashboard/` and `http://localhost:5173/contact/`.
+Local development serves the same primary entries from the Vite dev server at `http://localhost:5173/`, `http://localhost:5173/dashboard/` and `http://localhost:5173/contact/`.
 
 ## Base path
 

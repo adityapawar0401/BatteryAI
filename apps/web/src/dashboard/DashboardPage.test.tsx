@@ -28,6 +28,12 @@ const prediction: PredictionResult = {
   timing: { preprocessing_ms: 4, inference_ms: 11, total_ms: 15 },
 };
 
+const failurePrediction = {
+  task: "ev_failure", failure_probability: 0.0011102949501946568, failure_flag: false,
+  decision_threshold: 0.3624247610569, model_version: "oxford_ev_failure_v1_full",
+  model_sha256: SHA, active_experts: ["core_operational", "usage_aging", "chemistry_geometry", "pack_context", "physics_state", "residual"],
+};
+
 const readyInsights = { provider: "ollama", model: "llama3.2:3b", reachable: true, model_installed: true, ready: true, endpoint: "http://127.0.0.1:11434", generation_available: true, reason: null, corrective_command: null, version: "0.30.11" };
 
 function mockStaticFetch(handler?: (url: string, init?: RequestInit) => Response | undefined) {
@@ -52,11 +58,11 @@ const connectedService = (extra?: (url: string) => Response | undefined) => (url
 async function renderDashboard(handler?: (url: string, init?: RequestInit) => Response | undefined) {
   const fetchMock = mockStaticFetch(handler);
   render(<DashboardPage />);
-  await screen.findByRole("heading", { name: "Battery health analysis" });
+  await screen.findByRole("heading", { name: "Battery health assessment" });
   return fetchMock;
 }
 
-const dataNotice = (): HTMLElement => within(document.getElementById("data")!).getByRole("status");
+const dataNotice = (): HTMLElement => within(document.getElementById("diagnostic-data")!).getByRole("status");
 
 async function loadExample(): Promise<void> {
   fireEvent.click(screen.getByRole("button", { name: "Load example" }));
@@ -73,12 +79,12 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); sessionStorage.clear(); local
 beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 
 describe("dashboard branding", () => {
-  it("renders Re-Li in the dashboard header and navigation", async () => {
+  it("renders the canonical BatteryAI dashboard", async () => {
     await renderDashboard();
-    expect(screen.getByRole("heading", { level: 1, name: "SOH Analysis" })).toBeInTheDocument();
-    expect(screen.getByText("Re-Li dashboard")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "BatteryAI Dashboard" })).toBeInTheDocument();
+    expect(screen.getByText("BatteryAI dashboard")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Re-Li" })).toBeInTheDocument();
-    expect(document.body.textContent).not.toMatch(/BatteryAI|BATTERY\/AI|Battery AI/);
+    expect(document.body.textContent).toContain("BatteryAI production model");
   });
 
   it("uses the shared analysis shell and card system", async () => {
@@ -90,9 +96,8 @@ describe("dashboard branding", () => {
   it("uses Re-Li in dashboard metadata without exposing the legacy public brand", () => {
     const document = new DOMParser().parseFromString(dashboardHtml, "text/html");
     const description = document.querySelector('meta[name="description"]')?.getAttribute("content") ?? "";
-    expect(document.title).toBe("Re-Li | Dashboard");
-    expect(description).toContain("Re-Li dashboard");
-    expect(`${document.title} ${description}`).not.toContain("BatteryAI");
+    expect(document.title).toBe("BatteryAI | Dashboard");
+    expect(description).toContain("BatteryAI dashboard");
   });
 
   it("uses Re-Li in customer-facing loading and startup failure text", async () => {
@@ -135,14 +140,12 @@ describe("dashboard confidentiality", () => {
       : undefined));
     await connect();
     await loadExample();
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    await waitFor(() => expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
+    await waitFor(() => expect(within(document.getElementById("assessment")!).getByText("97.42%")).toBeInTheDocument());
 
     const text = document.body.textContent ?? "";
-    expect(text).toContain("Battery-PIMoE");
-    expect(text).toContain(SHA.slice(0, 12));
-    expect(text).toContain("Core operational");
-    expect(text).toContain("Diagnostic curve");
+    expect(text).toContain("BatteryAI production model");
+    expect(text).toContain("One shared production model supports both assessment outputs.");
     expect(text).toContain("Predictive uncertainty");
     for (const term of ["cuda:0", "local-pytorch", SHA, "C:\\", "/Users/", "training-cell"]) {
       expect(text.toLowerCase()).not.toContain(term.toLowerCase());
@@ -158,7 +161,7 @@ describe("dashboard confidentiality", () => {
 
   it("keeps the customer navigation free of technical destinations", async () => {
     await renderDashboard();
-    for (const label of ["Overview", "Data", "Validation", "Results", "Insights"]) {
+    for (const label of ["Overview", "Operational input", "Diagnostic input", "Validation", "Assessment", "Insights"]) {
       const link = screen.getByRole("link", { name: label });
       expect(document.getElementById(link.getAttribute("href")?.slice(1) ?? "")).not.toBeNull();
     }
@@ -192,7 +195,7 @@ describe("dashboard connection", () => {
   it("sends no protected request before connecting", async () => {
     const fetchMock = await renderDashboard();
     await loadExample();
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Connect to the analysis service before running an analysis.");
     for (const call of fetchMock.mock.calls) expect(String(call[0])).not.toContain("/v1/");
   });
@@ -217,7 +220,7 @@ describe("dashboard data workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Validate data" }));
     await waitFor(() => expect(dataNotice()).toHaveTextContent("3,510 rows passed validation"));
     expect(within(document.getElementById("validation")!).getByText("Validation passed")).toBeInTheDocument();
-    expect(within(document.getElementById("validation")!).getByText("Validation confirms that the supplied battery data is complete and structured correctly before analysis.")).toBeInTheDocument();
+    expect(within(document.getElementById("validation")!).getByText("Validation confirms that supplied diagnostic curve data is complete and structured correctly before analysis.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Input Data Preview" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Voltage against point index\. 3,510 supplied points/ })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Capacity coordinate against point index/ })).toBeInTheDocument();
@@ -261,20 +264,62 @@ describe("dashboard data workflow", () => {
 });
 
 describe("dashboard results", () => {
+  it("renders both scientifically separate input workflows and both neutral outputs", async () => {
+    await renderDashboard();
+    expect(screen.getByRole("heading", { name: "Operational / EV data" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Diagnostic curve / SOH data" })).toBeInTheDocument();
+    const assessment = within(document.getElementById("assessment")!);
+    expect(assessment.getAllByText("State of Health").length).toBeGreaterThan(0);
+    expect(assessment.getAllByText("Failure Risk").length).toBeGreaterThan(0);
+    expect(assessment.getAllByText("Not evaluated")).toHaveLength(2);
+    expect(assessment.getAllByText("BatteryAI production model")).toHaveLength(1);
+  });
+
+  it("supports a Failure Risk-only assessment and leaves SOH neutral", async () => {
+    await renderDashboard(connectedService((url) => url.endsWith("/api/predict/failure")
+      ? new Response(JSON.stringify(failurePrediction))
+      : undefined));
+    await connect();
+    fireEvent.click(screen.getByRole("button", { name: "Load EV example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
+    const assessment = within(document.getElementById("assessment")!);
+    await waitFor(() => expect(assessment.getByText("0.1%")).toBeInTheDocument());
+    expect(assessment.getByText("No failure flag")).toBeInTheDocument();
+    expect(assessment.getByText("36.2%")).toBeInTheDocument();
+    expect(assessment.getByText("Not evaluated")).toBeInTheDocument();
+  });
+
+  it("runs both endpoints in order and renders a unified assessment", async () => {
+    const calls: string[] = [];
+    await renderDashboard(connectedService((url) => {
+      if (url.endsWith("/api/predict/failure")) { calls.push("failure"); return new Response(JSON.stringify(failurePrediction)); }
+      if (url.endsWith("/v1/infer")) { calls.push("soh"); return new Response(JSON.stringify({ fallback_occurred: false, results: [prediction] })); }
+      return undefined;
+    }));
+    await connect();
+    fireEvent.click(screen.getByRole("button", { name: "Load EV example" }));
+    await loadExample();
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
+    const assessment = within(document.getElementById("assessment")!);
+    await waitFor(() => expect(assessment.getByText("97.42%")).toBeInTheDocument());
+    expect(assessment.getByText("0.1%")).toBeInTheDocument();
+    expect(calls).toEqual(["failure", "soh"]);
+    expect(assessment.getAllByText("BatteryAI production model")).toHaveLength(1);
+  });
+
   it("emphasizes estimated SOH and its predictive uncertainty", async () => {
     await renderDashboard(connectedService((url) => url === "http://127.0.0.1:8000/v1/infer"
       ? new Response(JSON.stringify({ fallback_occurred: false, results: [prediction] }))
       : undefined));
     await connect();
     await loadExample();
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    const results = () => within(document.getElementById("results")!);
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
+    const results = () => within(document.getElementById("assessment")!);
     await waitFor(() => expect(results().getByText("97.42%")).toBeInTheDocument());
     expect(results().getByText("Estimated state of health")).toBeInTheDocument();
-    expect(results().getByText("Predictive uncertainty")).toBeInTheDocument();
+    expect(results().getByText("SOH uncertainty")).toBeInTheDocument();
     expect(results().getByText("±1.83%")).toBeInTheDocument();
-    expect(results().getByText("cyc0000")).toBeInTheDocument();
-    expect(results().getByText("cyc0100")).toBeInTheDocument();
+    expect(results().getByText(/cyc0000.*cyc0100/)).toBeInTheDocument();
     expect(results().getAllByText("Completed").length).toBeGreaterThan(0);
   });
 
@@ -285,14 +330,14 @@ describe("dashboard results", () => {
       : undefined));
     await connect();
     await loadExample();
-    const results = () => within(document.getElementById("results")!);
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
+    const results = () => within(document.getElementById("assessment")!);
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
     await waitFor(() => expect(results().getByText("97.42%")).toBeInTheDocument());
     expect(results().queryByText("Reference SOH")).not.toBeInTheDocument();
     expect(results().queryByText("Absolute error")).not.toBeInTheDocument();
 
     payload = { ...prediction, actual_soh: 96.1, absolute_error: 1.32 };
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
     expect(results().getByText(/Analyzing your battery data/)).toBeInTheDocument();
     await waitFor(() => expect(results().queryByText(/Analyzing your battery data/)).not.toBeInTheDocument());
     expect(results().queryByText("Reference SOH")).not.toBeInTheDocument();
@@ -308,7 +353,7 @@ describe("dashboard results", () => {
       : undefined));
     await connect();
     await loadExample();
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/busy|unavailable/i);
     for (const term of internalTerms) expect(alert.textContent?.toLowerCase()).not.toContain(term.toLowerCase());
@@ -329,8 +374,8 @@ describe("dashboard insights", () => {
     }));
     await connect();
     await loadExample();
-    fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    await waitFor(() => expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Analyze battery" }));
+    await waitFor(() => expect(within(document.getElementById("assessment")!).getByText("97.42%")).toBeInTheDocument());
   }
 
   it("renders insights without naming any provider or model", async () => {
@@ -350,7 +395,7 @@ describe("dashboard insights", () => {
     expect(panel().getByRole("heading", { name: "Considerations" })).toBeInTheDocument();
     const text = document.getElementById("insights")!.textContent ?? "";
     for (const term of ["Ollama", "llama3.2", "provider", "local LLM"]) expect(text.toLowerCase()).not.toContain(term.toLowerCase());
-    expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument();
+    expect(within(document.getElementById("assessment")!).getByText("97.42%")).toBeInTheDocument();
   });
 
   it("does not render SOC, model-quality, or internal commentary from a generated response", async () => {
@@ -367,7 +412,7 @@ describe("dashboard insights", () => {
     expect(panel().getByText("Interpret the estimate alongside its uncertainty.")).toBeInTheDocument();
     expect(panel().getByText("Repeat the health measurement later.")).toBeInTheDocument();
     // The numerical result is untouched by insight filtering.
-    expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument();
+    expect(within(document.getElementById("assessment")!).getByText("97.42%")).toBeInTheDocument();
   });
 
   it("renders a safe error rather than incomplete guidance after defensive filtering", async () => {
@@ -395,7 +440,7 @@ describe("dashboard insights", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("AI insights are temporarily unavailable.");
     fireEvent.click(screen.getByRole("button", { name: "Generate insights" }));
     await waitFor(() => expect(within(document.getElementById("insights")!).getByText("State of health is estimated at 97.42%.")).toBeInTheDocument());
-    expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument();
+    expect(within(document.getElementById("assessment")!).getByText("97.42%")).toBeInTheDocument();
   });
 });
 
@@ -411,4 +456,5 @@ describe("dashboard navigation", () => {
     await waitFor(() => expect(toggle).toHaveAttribute("aria-expanded", "false"));
     expect(document.body).not.toHaveClass("scroll-locked");
   });
+
 });

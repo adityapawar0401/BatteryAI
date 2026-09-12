@@ -4,7 +4,7 @@ The public website and this repository serve different audiences. The site prese
 
 ## What the UI must never present
 
-Oxford / Oxford V1, Battery-PIMoE, model architecture, active or masked experts, model profile, checkpoint or checkpoint hash, SHA-256, Ollama, `llama3.2:3b`, local LLM, ONNX or browser ML, FastAPI, Tailscale or Funnel, GitHub Pages, CUDA or CPU fallback, loopback, remote versus local deployment mode, the backend or Funnel URL, RUL availability, and the next-observed-checkpoint horizon.
+Oxford / Oxford V1, Battery-PIMoE, model architecture, active or masked experts, model profile, checkpoint or checkpoint hash, SHA-256, Ollama, `llama3.2:3b`, local LLM, ONNX or browser ML, FastAPI, Tailscale or Funnel, GitHub Pages, CUDA or CPU fallback, loopback, remote versus local deployment mode, the backend or Funnel URL, RUL availability, and the next-observed-checkpoint horizon. The approved product-level identity “BatteryAI production model” is allowed and appears once in the unified assessment.
 
 None of this is removed from the system — only from the screen. The backend continues to use every internal value, and the frontend continues to receive the current API responses unchanged.
 

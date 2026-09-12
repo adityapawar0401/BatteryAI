@@ -121,10 +121,10 @@ class BatteryAIEngine:
         for row in request.rows:
             grouped.setdefault(row.sequence_id, []).append(row)
         ordered_groups = [sorted(rows, key=lambda row: row.point_index) for rows in grouped.values()]
-        batch = build_batch(self.model, ordered_groups, self.scaler, device)
-        preprocessed = time.perf_counter()
         with self._model_lock, torch.inference_mode():
             self.model.runtime_active_experts = tuple(ACTIVE_EXPERTS)
+            batch = build_batch(self.model, ordered_groups, self.scaler, device)
+            preprocessed = time.perf_counter()
             output = self.model(batch)
         inferred = time.perf_counter()
         location = self.scaler.inverse_location(output["soh"]["location"])
@@ -196,6 +196,7 @@ class BatteryAIEngine:
                 decision_threshold=self.decision_threshold,
                 model_version=MODEL_VERSION,
                 model_sha256=self.model_sha256,
+                active_experts=list(EV_ACTIVE_EXPERTS),
                 runtime_device=str(device),
                 inference_ms=elapsed_ms,
             )

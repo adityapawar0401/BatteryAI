@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnalysisPageShell } from "../analysis/AnalysisUI";
 import { AutoInferenceProvider } from "../inference/auto";
 import { BrowserOnnxInferenceProvider } from "../inference/browser";
 import { LocalHttpInferenceProvider } from "../inference/local";
@@ -18,6 +19,7 @@ import { ValidationSection } from "./ValidationSection";
 import { summarizeRows } from "./summary";
 import "../styles/tokens.css";
 import "../styles/components.css";
+import "../styles/analysis.css";
 import "../styles/dashboard.css";
 
 type JsonSchema = { properties: { rows: { items: { properties: FieldSchema } } } };
@@ -118,8 +120,13 @@ export function DashboardPage() {
     <DashboardSidebar open={navOpen} onClose={closeNav} />
     <div className="dash-main">
       <DashboardHeader connected={paired} busy={busy} completed={!!response} navOpen={navOpen} onOpenNav={() => setNavOpen(true)} />
-      <div className="dash-body">
-        <OverviewSection
+      <main className="dash-body">
+        <AnalysisPageShell
+          eyebrow="SOH capability"
+          title="SOH Analysis"
+          description="Estimate battery state of health and predictive uncertainty from a supported diagnostic curve."
+        >
+          <OverviewSection
           response={response} connected={paired} accessCode={token}
           onAccessCodeChange={(value) => { setToken(value); setPaired(false); }} onConnect={connect}
           rowCount={rows.length} validated={validated} busy={busy}
@@ -137,8 +144,9 @@ export function DashboardPage() {
           onExportJson={() => download("Re-Li-results.json", JSON.stringify(response, null, 2), "application/json")}
           onExportCsv={() => download("Re-Li-results.csv", resultsToCsv((response?.results ?? []) as unknown as Record<string, unknown>[]), "text/csv")}
         />
-        <SuggestionPanel paired={paired} latestResult={response?.results[0] ?? null} provider={suggestionProvider} onStatusChange={setLlmStatus} />
-      </div>
+          <SuggestionPanel paired={paired} latestResult={response?.results[0] ?? null} provider={suggestionProvider} onStatusChange={setLlmStatus} />
+        </AnalysisPageShell>
+      </main>
     </div>
   </div>;
 }

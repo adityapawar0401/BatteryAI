@@ -222,55 +222,6 @@
   }
 }
 
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  max-width: 100%;
-  padding: 0.35rem 0.6rem;
-  background: var(--color-panel-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-  font-size: 0.65rem;
-  letter-spacing: 0.06em;
-}
-
-.status-badge__dot {
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--color-faint);
-}
-
-.status-badge--healthy .status-badge__dot {
-  background: var(--color-volt);
-}
-
-.status-badge--warning .status-badge__dot {
-  background: var(--color-copper);
-}
-
-.status-badge__label {
-  text-transform: uppercase;
-  color: var(--color-faint);
-}
-
-.status-badge__value {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text);
-}
-
-.status-badge--healthy .status-badge__value {
-  color: var(--color-volt);
-}
-
-.status-badge--warning .status-badge__value {
-  color: var(--color-copper-text);
-}
-
 /* Sections --------------------------------------------------------------------- */
 
 .dash-body {
@@ -288,39 +239,6 @@
  */
 .dash-body > * {
   min-width: 0;
-}
-
-.dash-section {
-  padding: clamp(1.1rem, 3vw, 1.75rem);
-  background: var(--color-panel-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-  scroll-margin-top: 5rem;
-}
-
-.dash-section__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: start;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.dash-section h2 {
-  margin: 0;
-  font-size: clamp(1.15rem, 2.4vw, 1.5rem);
-}
-
-.dash-section .eyebrow {
-  margin-bottom: 0.35rem;
-}
-
-.dash-section__intro {
-  max-width: 52rem;
-  margin: 0.55rem 0 0;
-  font-size: 0.88rem;
-  color: var(--color-muted);
 }
 
 .dash-subtitle,
@@ -449,42 +367,6 @@
 }
 
 /* Connection and progress -------------------------------------------------------- */
-
-.connect {
-  padding: clamp(1rem, 3vw, 1.5rem);
-  background: var(--color-panel);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-small);
-}
-
-.connect__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.connect__title {
-  margin: 0;
-  font-size: 1rem;
-}
-
-.connect__form {
-  display: grid;
-  gap: 0.75rem;
-  align-items: end;
-  margin-top: 1rem;
-}
-
-@media (min-width: 640px) {
-  .connect__form {
-    /* justify-content keeps the button at its natural width instead of
-       stretching it across the remaining free space. */
-    grid-template-columns: minmax(0, 22rem) max-content;
-    justify-content: start;
-  }
-}
 
 .progress-list {
   display: grid;

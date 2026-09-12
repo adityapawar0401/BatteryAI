@@ -163,6 +163,7 @@ class FailurePrediction(StrictModel):
     decision_threshold: float = Field(ge=0, le=1)
     model_version: str
     model_sha256: str
+    active_experts: list[str]
     runtime_device: str
     inference_ms: float = Field(ge=0)
 

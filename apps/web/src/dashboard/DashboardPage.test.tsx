@@ -75,9 +75,16 @@ beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
 describe("dashboard branding", () => {
   it("renders Re-Li in the dashboard header and navigation", async () => {
     await renderDashboard();
-    expect(screen.getByRole("heading", { level: 1, name: "Re-Li dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "SOH Analysis" })).toBeInTheDocument();
+    expect(screen.getByText("Re-Li dashboard")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Re-Li" })).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/BatteryAI|BATTERY\/AI|Battery AI/);
+  });
+
+  it("uses the shared analysis shell and card system", async () => {
+    await renderDashboard();
+    expect(document.querySelector("[data-analysis-shell='BatteryAI']")).not.toBeNull();
+    expect(document.querySelectorAll(".analysis-card").length).toBeGreaterThanOrEqual(4);
   });
 
   it("uses Re-Li in dashboard metadata without exposing the legacy public brand", () => {
@@ -122,17 +129,22 @@ describe("dashboard confidentiality", () => {
     expect(screen.queryByText(/local|remote/i)).not.toBeInTheDocument();
   });
 
-  it("renders no model, device, or checkpoint detail after a completed analysis", async () => {
+  it("renders the approved shared model identity without paths or device details", async () => {
     await renderDashboard(connectedService((url) => url === "http://127.0.0.1:8000/v1/infer"
       ? new Response(JSON.stringify({ fallback_occurred: false, results: [{ ...prediction, warnings: ["Final-training-cell examples are software fixtures, not unbiased performance estimates."] }] }))
       : undefined));
     await connect();
     await loadExample();
     fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    await waitFor(() => expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument());
+    await waitFor(() => expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument());
 
     const text = document.body.textContent ?? "";
-    for (const term of [...internalTerms, "cuda:0", "local-pytorch", SHA, SHA.slice(0, 12), "oxford-v1", "training-cell"]) {
+    expect(text).toContain("Battery-PIMoE");
+    expect(text).toContain(SHA.slice(0, 12));
+    expect(text).toContain("Core operational");
+    expect(text).toContain("Diagnostic curve");
+    expect(text).toContain("Predictive uncertainty");
+    for (const term of ["cuda:0", "local-pytorch", SHA, "C:\\", "/Users/", "training-cell"]) {
       expect(text.toLowerCase()).not.toContain(term.toLowerCase());
     }
   });
@@ -249,7 +261,7 @@ describe("dashboard data workflow", () => {
 });
 
 describe("dashboard results", () => {
-  it("emphasizes the unchanged estimated SOH without rendering numerical uncertainty", async () => {
+  it("emphasizes estimated SOH and its predictive uncertainty", async () => {
     await renderDashboard(connectedService((url) => url === "http://127.0.0.1:8000/v1/infer"
       ? new Response(JSON.stringify({ fallback_occurred: false, results: [prediction] }))
       : undefined));
@@ -257,10 +269,10 @@ describe("dashboard results", () => {
     await loadExample();
     fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
     const results = () => within(document.getElementById("results")!);
-    await waitFor(() => expect(results().getByText("97.42")).toBeInTheDocument());
-    expect(results().getByText("% estimated state of health")).toBeInTheDocument();
-    expect(results().queryByText("Uncertainty")).not.toBeInTheDocument();
-    expect(results().queryByText(/1\.83 pp/)).not.toBeInTheDocument();
+    await waitFor(() => expect(results().getByText("97.42%")).toBeInTheDocument());
+    expect(results().getByText("Estimated state of health")).toBeInTheDocument();
+    expect(results().getByText("Predictive uncertainty")).toBeInTheDocument();
+    expect(results().getByText("±1.83%")).toBeInTheDocument();
     expect(results().getByText("cyc0000")).toBeInTheDocument();
     expect(results().getByText("cyc0100")).toBeInTheDocument();
     expect(results().getAllByText("Completed").length).toBeGreaterThan(0);
@@ -275,7 +287,7 @@ describe("dashboard results", () => {
     await loadExample();
     const results = () => within(document.getElementById("results")!);
     fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    await waitFor(() => expect(results().getByText("97.42")).toBeInTheDocument());
+    await waitFor(() => expect(results().getByText("97.42%")).toBeInTheDocument());
     expect(results().queryByText("Reference SOH")).not.toBeInTheDocument();
     expect(results().queryByText("Absolute error")).not.toBeInTheDocument();
 
@@ -287,7 +299,7 @@ describe("dashboard results", () => {
     expect(results().queryByText("Absolute error")).not.toBeInTheDocument();
     expect(results().queryByText("96.10%")).not.toBeInTheDocument();
     expect(results().queryByText("1.32 pp")).not.toBeInTheDocument();
-    expect(results().getByText("97.42")).toBeInTheDocument();
+    expect(results().getByText("97.42%")).toBeInTheDocument();
   });
 
   it("reports an unavailable service in customer language", async () => {
@@ -318,7 +330,7 @@ describe("dashboard insights", () => {
     await connect();
     await loadExample();
     fireEvent.click(screen.getByRole("button", { name: "Run analysis" }));
-    await waitFor(() => expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument());
+    await waitFor(() => expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument());
   }
 
   it("renders insights without naming any provider or model", async () => {
@@ -338,7 +350,7 @@ describe("dashboard insights", () => {
     expect(panel().getByRole("heading", { name: "Considerations" })).toBeInTheDocument();
     const text = document.getElementById("insights")!.textContent ?? "";
     for (const term of ["Ollama", "llama3.2", "provider", "local LLM"]) expect(text.toLowerCase()).not.toContain(term.toLowerCase());
-    expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument();
+    expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument();
   });
 
   it("does not render SOC, model-quality, or internal commentary from a generated response", async () => {
@@ -355,7 +367,7 @@ describe("dashboard insights", () => {
     expect(panel().getByText("Interpret the estimate alongside its uncertainty.")).toBeInTheDocument();
     expect(panel().getByText("Repeat the health measurement later.")).toBeInTheDocument();
     // The numerical result is untouched by insight filtering.
-    expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument();
+    expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument();
   });
 
   it("renders a safe error rather than incomplete guidance after defensive filtering", async () => {
@@ -383,7 +395,7 @@ describe("dashboard insights", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("AI insights are temporarily unavailable.");
     fireEvent.click(screen.getByRole("button", { name: "Generate insights" }));
     await waitFor(() => expect(within(document.getElementById("insights")!).getByText("State of health is estimated at 97.42%.")).toBeInTheDocument());
-    expect(within(document.getElementById("results")!).getByText("97.42")).toBeInTheDocument();
+    expect(within(document.getElementById("results")!).getByText("97.42%")).toBeInTheDocument();
   });
 });
 

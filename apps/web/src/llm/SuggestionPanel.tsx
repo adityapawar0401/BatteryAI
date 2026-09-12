@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnalysisError, AnalysisSection } from "../analysis/AnalysisUI";
 import type { PredictionResult } from "../types";
 import { clientErrorMessage, clientSafeSummary, keepClientSafe, INSIGHTS_UNAVAILABLE } from "../clientText";
 import { type LocalLlmCapabilities, type SuggestionProvider } from "./provider";
@@ -89,13 +90,10 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
 
   const canGenerate = paired && !!latestResult && !!capability?.ready && ["ready", "completed", "error"].includes(status);
 
-  return <section className="dash-section" id="insights" aria-labelledby="suggestion-heading">
-    <div className="dash-section__head"><div>
-      <p className="eyebrow">Insights</p><h2 id="suggestion-heading">AI Insights</h2>
-    </div></div>
+  return <AnalysisSection id="insights" eyebrow="Insights" title="AI Insights" description="Optional plain-language guidance based on the completed SOH result.">
     <p className="dash-hint">Insights summarize the completed analysis in plain language. They never change the values above.</p>
     <p className="dash-notice" role="status"><strong>Insights: {statusLabel[status]}</strong>: {message}</p>
-    {error && <p className="dash-error" role="alert">{error}</p>}
+    {error && <AnalysisError>{error}</AnalysisError>}
     <div className="dash-actions dash-actions--wrap">
       {paired && ["unavailable", "error"].includes(status) && <button type="button" className="btn btn--secondary" onClick={() => void check()}>Check again</button>}
       {canGenerate && <button type="button" className="btn" onClick={generate}>Generate insights</button>}
@@ -109,5 +107,5 @@ export function SuggestionPanel({ paired, latestResult, provider, onStatusChange
     </div>
       : <div className="dash-empty">{latestResult ? (capability?.ready ? "Insights are ready to generate for the latest completed analysis." : INSIGHTS_UNAVAILABLE) : "Complete an analysis to generate insights."}</div>}
     <p className="dash-warning">AI-generated decision support only, not a safety certification. Insights cannot change the analysis results above.</p>
-  </section>;
+  </AnalysisSection>;
 }

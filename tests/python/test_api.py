@@ -54,6 +54,47 @@ def test_failure_endpoint_uses_stored_threshold(monkeypatch, cpu_engine):
     assert data["failure_flag"] == (data["failure_probability"] >= data["decision_threshold"])
     assert data["decision_threshold"] == 0.3624247610569
     assert data["model_version"] == "oxford_ev_failure_v1_full"
+    assert data["active_experts"] == ["core_operational", "usage_aging", "chemistry_geometry", "pack_context", "physics_state", "residual"]
+
+
+def test_both_endpoints_expose_the_same_selected_model_identity(monkeypatch, cpu_engine, inference_request):
+    monkeypatch.setattr(app_module, "get_engine", lambda: cpu_engine)
+    client = TestClient(app_module.app)
+    headers = {"X-BatteryAI-Token": app_module.PAIRING_TOKEN}
+    failure = client.post(
+        "/api/predict/failure",
+        headers=headers,
+        json={"snapshot": {"battery_chemistry": "NMC", "cell_voltage_avg": 3.4374}},
+    )
+    soh = client.post("/v1/infer", headers=headers, json=inference_request.model_dump())
+    capabilities = client.get("/v1/capabilities", headers=headers)
+
+    assert failure.status_code == soh.status_code == capabilities.status_code == 200
+    identities = {
+        failure.json()["model_sha256"],
+        soh.json()["results"][0]["model_sha256"],
+        capabilities.json()["model_sha256"],
+        cpu_engine.model_sha256,
+    }
+    assert identities == {"24f985e578fb8db4610a4019e0e894a4e151e1f888622057c4ef6b356f1647e2"}
+
+
+def test_get_engine_constructs_one_shared_runtime(monkeypatch):
+    constructed = []
+    marker = object()
+
+    def factory(*_args, **_kwargs):
+        constructed.append(marker)
+        return marker
+
+    app_module.get_engine.cache_clear()
+    monkeypatch.setattr(app_module, "BatteryAIEngine", factory)
+    try:
+        assert app_module.get_engine() is marker
+        assert app_module.get_engine() is marker
+        assert constructed == [marker]
+    finally:
+        app_module.get_engine.cache_clear()
 
 
 def test_bad_payload_has_structured_422():

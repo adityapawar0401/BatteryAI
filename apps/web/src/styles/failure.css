@@ -1,28 +1,8 @@
 .failure-page {
-  width: min(1120px, calc(100% - 2 * var(--space-page)));
-  margin: 0 auto;
-  padding: 9rem 0 5rem;
+  width: 100%;
+  padding: 9rem var(--space-page) 5rem;
 }
 
-.failure-hero { max-width: 52rem; margin-bottom: 2rem; }
-.failure-hero h1 { margin: 0; font-size: clamp(2.5rem, 7vw, 5.5rem); }
-.failure-hero > p:last-child { max-width: 46rem; font-size: 1.05rem; }
-.failure-page .panel { padding: clamp(1rem, 3vw, 1.75rem); margin-bottom: 1rem; }
-.failure-connect { display: grid; gap: 1rem; align-items: end; }
-.failure-connect h2, .failure-group h2 { margin: 0; }
-.failure-connect label, .failure-fields label, .failure-group > label { display: grid; gap: .35rem; font-size: .8rem; color: var(--color-text); }
-.failure-connect input, .failure-fields input, .failure-group select { min-height: 44px; padding: .65rem .75rem; background: var(--color-panel-sunken); border: 1px solid var(--color-border-strong); border-radius: var(--radius-small); }
-.failure-group__head { margin-bottom: 1rem; }
-.failure-fields { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); }
-.failure-fields label span { font-family: var(--font-mono); font-size: .65rem; color: var(--color-faint); }
 .failure-note { font-size: .78rem; color: var(--color-faint); }
-.failure-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.25rem 0; }
-.failure-error { padding: 1rem; border-left: 3px solid var(--color-copper-text); background: var(--color-copper-soft); color: var(--color-text); }
-.failure-result { border-color: rgba(204, 255, 0, .35); }
-.failure-result__probability { margin: 0; font-size: clamp(3rem, 10vw, 7rem); line-height: 1; color: var(--color-volt); }
 .failure-meter { height: 10px; margin: 1.25rem 0; overflow: hidden; background: var(--color-panel-sunken); border: 1px solid var(--color-border); }
 .failure-meter span { display: block; height: 100%; background: var(--color-volt); }
-
-@media (min-width: 760px) {
-  .failure-connect { grid-template-columns: 1fr minmax(16rem, .7fr) auto; }
-}

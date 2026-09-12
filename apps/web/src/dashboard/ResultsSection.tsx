@@ -1,4 +1,5 @@
 import { keepClientSafe } from "../clientText";
+import { AnalysisSection, AnalyzeButton, MetricTile, ModelIdentity, PredictionResultCard } from "../analysis/AnalysisUI";
 import type { InferenceResponse, PredictionResult } from "../types";
 import { StatusBadge } from "./StatusBadge";
 
@@ -17,17 +18,10 @@ export function ResultsSection({ connected, busy, rowCount, response, ...props }
   const results = response?.results ?? [];
   const state = busy ? "Processing" : results.length ? "Completed" : connected ? "Ready" : "Unavailable";
 
-  return <section className="dash-section" id="results" aria-labelledby="results-heading">
-    <div className="dash-section__head">
-      <div>
-        <p className="eyebrow">Results</p>
-        <h2 id="results-heading">Analysis results</h2>
-      </div>
-      <StatusBadge tone={busy || results.length ? "healthy" : "idle"} label="Status">{state}</StatusBadge>
-    </div>
+  return <AnalysisSection id="results" eyebrow="Results" title="SOH analysis result" description="Review the estimated state of health together with predictive uncertainty." headerAside={<StatusBadge tone={busy || results.length ? "healthy" : "idle"} label="Status">{state}</StatusBadge>}>
 
     <div className="dash-actions dash-actions--wrap">
-      <button type="button" className="btn" onClick={props.onRun} disabled={busy || !rowCount}>{busy ? "Analyzing…" : "Run analysis"}</button>
+      <AnalyzeButton busy={busy} busyLabel="Analyzing…" onClick={props.onRun} disabled={!rowCount}>Run analysis</AnalyzeButton>
       {busy && <button type="button" className="btn btn--secondary" onClick={props.onCancel}>Cancel</button>}
       {results.length > 0 && <>
         <button type="button" className="btn btn--ghost" onClick={props.onExportJson}>Export JSON</button>
@@ -40,23 +34,27 @@ export function ResultsSection({ connected, busy, rowCount, response, ...props }
     {!results.length
       ? <p className="dash-empty">Results appear here once an analysis has completed.</p>
       : <>
-        <div className="metric-grid">
+        <div className="analysis-result-grid">
           {results.map((result) => {
             const notes = keepClientSafe(result.warnings);
-            return <article className="metric-card" key={result.sequence_id}>
+            return <PredictionResultCard key={result.sequence_id}>
               <p className="metric-card__id mono">{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p>
-              <p className="metric-card__value mono">{result.predicted_soh.toFixed(2)}<span className="metric-card__unit">% estimated state of health</span></p>
+              <div className="analysis-metric-grid">
+                <MetricTile label="Predicted SOH" value={`${result.predicted_soh.toFixed(2)}%`} unit="Estimated state of health" primary />
+                <MetricTile label="Predictive uncertainty" value={`±${result.predictive_std.toFixed(2)}%`} unit="Model uncertainty scale" />
+              </div>
               <dl className="metric-card__facts">
                 <div><dt>From</dt><dd>{result.source_checkpoint}</dd></div>
                 <div><dt>To</dt><dd>{result.target_checkpoint}</dd></div>
               </dl>
+              <ModelIdentity task="Oxford SOH estimation" modelVersion="oxford_ev_failure_v1_full" modelSha256={result.model_sha256} activeExperts={result.active_experts} />
               {notes.map((note) => <p className="dash-warning" key={note}>{note}</p>)}
-            </article>;
+            </PredictionResultCard>;
           })}
         </div>
         {results.length > 1 && <SohChart results={results} />}
       </>}
-  </section>;
+  </AnalysisSection>;
 }
 
 function SohChart({ results }: { results: PredictionResult[] }) {

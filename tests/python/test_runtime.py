@@ -3,12 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import copy
+import math
 
 import pytest
 import torch
 from pydantic import ValidationError
 
-from batteryai_runtime.contracts import ACTIVE_EXPERTS, InferenceRequest
+from batteryai_runtime.contracts import ACTIVE_EXPERTS, EV_ACTIVE_EXPERTS, FailureSnapshot, InferenceRequest
 from batteryai_runtime.preprocessing import build_batch
 
 
@@ -26,6 +27,45 @@ def test_strict_model_and_active_experts(cpu_engine):
     assert not cpu_engine.model.training
     assert all(not parameter.requires_grad for parameter in cpu_engine.model.parameters())
     assert sum(parameter.numel() for parameter in cpu_engine.model.parameters()) == 19_541_971
+
+
+def test_tasks_share_model_parameters_but_keep_distinct_preprocessing_and_masks(cpu_engine, inference_request):
+    model_identity = id(cpu_engine.model)
+    parameter_identity = next(cpu_engine.model.parameters()).data_ptr()
+
+    soh = cpu_engine.predict(inference_request).results[0]
+    assert id(cpu_engine.model) == model_identity
+    assert next(cpu_engine.model.parameters()).data_ptr() == parameter_identity
+    assert soh.active_experts == ACTIVE_EXPERTS
+    assert tuple(cpu_engine.model.runtime_active_experts) == tuple(ACTIVE_EXPERTS)
+
+    failure = cpu_engine.predict_failure([FailureSnapshot(battery_chemistry="NMC", cell_voltage_avg=3.4374)])[0]
+    assert id(cpu_engine.model) == model_identity
+    assert next(cpu_engine.model.parameters()).data_ptr() == parameter_identity
+    assert failure.active_experts == EV_ACTIVE_EXPERTS
+    assert tuple(cpu_engine.model.runtime_active_experts) == tuple(EV_ACTIVE_EXPERTS)
+    assert cpu_engine.failure_preprocessor is not cpu_engine.scaler
+
+    repeated_soh = cpu_engine.predict(inference_request).results[0]
+    assert repeated_soh.predicted_soh == pytest.approx(soh.predicted_soh, abs=1e-6)
+    assert repeated_soh.predictive_std == pytest.approx(soh.predictive_std, abs=1e-6)
+    assert tuple(cpu_engine.model.runtime_active_experts) == tuple(ACTIVE_EXPERTS)
+
+
+def test_each_task_consumes_only_its_prediction_head(monkeypatch, cpu_engine, inference_request):
+    def task_specific_output(_model, batch):
+        if "ev_features" in batch:
+            size = batch["ev_features"]["values"].shape[0]
+            return {"failure": {"probability": torch.full((size,), 0.25)}}
+        size = batch["expert_inputs"]["core_operational"]["x"].shape[0]
+        return {"soh": {"location": torch.zeros(size), "scale": torch.ones(size)}}
+
+    monkeypatch.setattr(type(cpu_engine.model), "forward", task_specific_output)
+    soh = cpu_engine.predict(inference_request).results[0]
+    failure = cpu_engine.predict_failure([FailureSnapshot(battery_chemistry="NMC", cell_voltage_avg=3.4374)])[0]
+
+    assert math.isfinite(soh.predicted_soh)
+    assert failure.failure_probability == pytest.approx(0.25)
 
 
 def test_cpu_prediction_is_finite_stable_and_physical(cpu_engine, inference_request):

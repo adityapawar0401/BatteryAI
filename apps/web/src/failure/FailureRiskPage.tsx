@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { AnalysisError, AnalysisPageShell, AnalysisSection, AnalyzeButton, MetricTile, ModelIdentity, PredictionResultCard } from "../analysis/AnalysisUI";
 import { applyBuildDeploymentConfig, type AppConfig } from "../config";
 import { clientErrorMessage } from "../clientText";
+import { ConnectionPanel } from "../dashboard/ConnectionPanel";
 import { LandingFooter } from "../landing/LandingFooter";
 import { LandingNav } from "../landing/LandingNav";
 import { assetPath } from "../routes";
 import "../styles/tokens.css";
 import "../styles/components.css";
 import "../styles/landing.css";
+import "../styles/analysis.css";
 import "../styles/failure.css";
 
 type Field = { name: string; label: string; unit: string };
@@ -17,6 +20,8 @@ type FailureResult = {
   failure_flag: boolean;
   decision_threshold: number;
   model_version: string;
+  model_sha256: string;
+  active_experts: string[];
 };
 
 const groups: Group[] = [
@@ -126,46 +131,63 @@ export function FailureRiskPage() {
   }
 
   return <div className="landing">
-    <a className="skip-link" href="#failure-form">Skip to assessment</a>
+    <a className="skip-link" href="#input">Skip to assessment</a>
     <LandingNav />
     <main className="failure-page">
-      <header className="failure-hero">
-        <p className="eyebrow">Primary capability</p>
-        <h1 className="mono">Battery Failure Risk</h1>
-        <p>Estimate failure probability from one EV battery telemetry snapshot. This is classification, not a safety guarantee or time-to-failure forecast.</p>
-      </header>
+      <AnalysisPageShell
+        eyebrow="EV capability"
+        title="Battery Failure Risk"
+        description="Estimate failure probability from one supported EV battery telemetry snapshot. This classification is not a safety guarantee or time-to-failure forecast."
+      >
+        <AnalysisSection id="connection" eyebrow="Secure access" title="Analysis service" description="Use the same secure BatteryAI service as SOH Analysis.">
+          <ConnectionPanel
+            connected={connected}
+            accessCode={token}
+            onAccessCodeChange={(value) => { setToken(value); setConnected(false); }}
+            onConnect={connect}
+            disabled={!config || !token}
+          />
+        </AnalysisSection>
 
-      <section className="failure-connect panel" aria-labelledby="connection-heading">
-        <div><p className="eyebrow">Secure access</p><h2 id="connection-heading">Analysis service</h2></div>
-        <label>Access code<input type="password" value={token} autoComplete="off" onChange={(event) => { setToken(event.target.value); setConnected(false); }} /></label>
-        <button className="btn" type="button" onClick={connect} disabled={!config || !token}>{connected ? "Connected" : "Connect"}</button>
-      </section>
+        <form id="failure-form" onSubmit={assess}>
+          <AnalysisSection id="input" eyebrow="Input" title="EV telemetry snapshot" description="Supply the supported measurements you have. Blank numeric fields remain explicitly missing and use the trained missing-value masks.">
+            <fieldset className="analysis-input-group">
+              <legend>Chemistry</legend>
+              <div className="analysis-fields">
+                <label className="analysis-field">Battery chemistry
+                  <span className="analysis-field__help">Supported chemistry family</span>
+                  <select value={values.battery_chemistry} onChange={(event) => setValues({ ...values, battery_chemistry: event.target.value })}>{["LFP", "LTO", "NCA", "NMC"].map((name) => <option key={name}>{name}</option>)}</select>
+                </label>
+              </div>
+            </fieldset>
+            {groups.map((group) => <fieldset className="analysis-input-group" key={group.title}>
+              <legend>{group.title}</legend>
+              <div className="analysis-fields">{group.fields.map((field) => <label className="analysis-field" key={field.name}>{field.label}<span className="analysis-field__help">{field.unit}</span><input type="number" step="any" value={values[field.name] ?? ""} placeholder="Missing" onChange={(event) => setValues({ ...values, [field.name]: event.target.value })} /></label>)}</div>
+            </fieldset>)}
+            <p className="failure-note">No target, brand, manufacturer, derived health field, or unsupported modality is sent to the model.</p>
+            <div className="analysis-actions">
+              <AnalyzeButton type="submit" busy={busy} busyLabel="Assessing…">Assess failure risk</AnalyzeButton>
+              <button className="btn btn--secondary" type="button" onClick={() => setValues(example)}>Load held-out example</button>
+            </div>
+          </AnalysisSection>
+        </form>
 
-      <form id="failure-form" onSubmit={assess}>
-        <section className="failure-group panel">
-          <div className="failure-group__head"><p className="eyebrow">Chemistry</p><h2>Cell chemistry</h2></div>
-          <label>Battery chemistry<select value={values.battery_chemistry} onChange={(event) => setValues({ ...values, battery_chemistry: event.target.value })}>{["LFP", "LTO", "NCA", "NMC"].map((name) => <option key={name}>{name}</option>)}</select></label>
-        </section>
-        {groups.map((group) => <section className="failure-group panel" key={group.title}>
-          <div className="failure-group__head"><p className="eyebrow">Snapshot inputs</p><h2>{group.title}</h2></div>
-          <div className="failure-fields">{group.fields.map((field) => <label key={field.name}>{field.label}<span>{field.unit}</span><input type="number" step="any" value={values[field.name] ?? ""} placeholder="Missing" onChange={(event) => setValues({ ...values, [field.name]: event.target.value })} /></label>)}</div>
-        </section>)}
-        <p className="failure-note">Blank values are sent explicitly as missing and handled by the trained missing-value masks. No target, brand, manufacturer, or derived health field is used.</p>
-        <div className="failure-actions"><button className="btn" type="submit" disabled={busy}>{busy ? "Assessing…" : "Assess failure risk"}</button><button className="btn btn--secondary" type="button" onClick={() => setValues(example)}>Load held-out example</button></div>
-      </form>
-
-      {error && <p className="failure-error" role="alert">{error}</p>}
-      {result && <section className="failure-result panel" aria-live="polite">
-        <p className="eyebrow">Battery Failure Risk</p>
-        <p className="failure-result__probability mono">{(result.failure_probability * 100).toFixed(1)}%</p>
-        <div className="failure-meter" aria-hidden="true"><span style={{ width: `${result.failure_probability * 100}%` }} /></div>
-        <dl className="matrix">
-          <div className="matrix__row"><dt>Classification</dt><dd>{result.failure_flag ? "Failure flag" : "No failure flag"}</dd></div>
-          <div className="matrix__row"><dt>Decision threshold</dt><dd>{(result.decision_threshold * 100).toFixed(1)}%</dd></div>
-          <div className="matrix__row"><dt>Model</dt><dd>Battery-PIMoE Oxford + EV Failure V1</dd></div>
-        </dl>
-        <p className="failure-note">Interpret this snapshot estimate with engineering review. It does not predict when a failure could occur and does not certify the battery as safe.</p>
-      </section>}
+        <AnalysisSection id="results" eyebrow="Results" title="Failure risk result" description="Review the probability together with the stored classification threshold.">
+          {error && <AnalysisError>{error}</AnalysisError>}
+          {!result
+            ? <p className="analysis-empty">Results appear here once an assessment has completed.</p>
+            : <PredictionResultCard>
+              <div className="analysis-metric-grid">
+                <MetricTile label="Failure probability" value={`${(result.failure_probability * 100).toFixed(1)}%`} unit="Snapshot classification probability" primary />
+                <MetricTile label="Classification" value={result.failure_flag ? "Failure flag" : "No failure flag"} unit="Based on the stored decision threshold" />
+                <MetricTile label="Decision threshold" value={`${(result.decision_threshold * 100).toFixed(1)}%`} unit="Model-selected classification cutoff" />
+              </div>
+              <div className="failure-meter" aria-label={`Failure probability ${(result.failure_probability * 100).toFixed(1)} percent`}><span style={{ width: `${result.failure_probability * 100}%` }} /></div>
+              <ModelIdentity task="EV failure classification" modelVersion={result.model_version} modelSha256={result.model_sha256} activeExperts={result.active_experts} />
+              <p className="failure-note">Interpret this snapshot estimate with engineering review. It does not predict when a failure could occur and does not certify the battery as safe.</p>
+            </PredictionResultCard>}
+        </AnalysisSection>
+      </AnalysisPageShell>
     </main>
     <LandingFooter />
   </div>;

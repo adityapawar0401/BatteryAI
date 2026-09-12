@@ -1,4 +1,5 @@
 import { StatusBadge } from "./StatusBadge";
+import { AnalysisError, AnalysisSection } from "../analysis/AnalysisUI";
 import { listOrDash, type DatasetSummary } from "./summary";
 
 interface ValidationSectionProps {
@@ -11,15 +12,7 @@ export function ValidationSection({ summary, errors, validated }: ValidationSect
   const tone = errors.length ? "warning" : validated ? "healthy" : "idle";
   const state = errors.length ? "Problems found" : validated ? "Validation passed" : "Validation required";
 
-  return <section className="dash-section" id="validation" aria-labelledby="validation-heading">
-    <div className="dash-section__head">
-      <div>
-        <p className="eyebrow">Validation</p>
-        <h2 id="validation-heading">Data validation</h2>
-        <p className="dash-section__intro">Validation confirms that the supplied battery data is complete and structured correctly before analysis.</p>
-      </div>
-      <StatusBadge tone={tone} label="Status">{state}</StatusBadge>
-    </div>
+  return <AnalysisSection id="validation" eyebrow="Validation" title="Data validation" description="Validation confirms that the supplied battery data is complete and structured correctly before analysis." headerAside={<StatusBadge tone={tone} label="Status">{state}</StatusBadge>}>
 
     {!summary
       ? <p className="dash-empty">Add battery data to see what the dataset contains.</p>
@@ -32,9 +25,6 @@ export function ValidationSection({ summary, errors, validated }: ValidationSect
         <div className="matrix__row"><dt className="mono">Target checkpoint</dt><dd>{listOrDash(summary.targetCheckpoints)}</dd></div>
       </dl>}
 
-    {errors.length > 0 && <div className="dash-error" role="alert">
-      <strong>Needs attention</strong>
-      <ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul>
-    </div>}
-  </section>;
+    {errors.length > 0 && <AnalysisError><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></AnalysisError>}
+  </AnalysisSection>;
 }

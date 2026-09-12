@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AnalysisSection } from "../analysis/AnalysisUI";
 import { assetPath } from "../routes";
 import { columns } from "../csv";
 import type { CurveRow } from "../types";
@@ -51,17 +52,12 @@ export function DataInputSection(props: DataInputSectionProps) {
   const seriesFor = (key: "voltage_V" | "capacity_Ah" | "temperature_K"): SeriesPoint[] =>
     plotted.map((row) => ({ x: row.point_index, y: row[key] }));
 
-  return <section className="dash-section" id="data" aria-labelledby="data-heading">
-    <div className="dash-section__head">
-      <div>
-        <p className="eyebrow">Data</p>
-        <h2 id="data-heading">Battery data</h2>
-      </div>
-      <div className="dash-actions">
+  return <AnalysisSection id="data" eyebrow="Input" title="Diagnostic curve data" description="Upload, paste, or review the supported diagnostic-curve format." headerAside={
+    <div className="dash-actions">
         <a className="btn btn--secondary" href={assetPath("fixtures/oxford-template.csv")} download>Download template</a>
         <button type="button" className="btn btn--secondary" onClick={props.onLoadExample}>Load example</button>
-      </div>
     </div>
+  }>
 
     <div className="tabs" role="tablist" aria-label="Input method">
       {(["upload", "paste", "table"] as Tab[]).map((item) => <button
@@ -136,5 +132,5 @@ export function DataInputSection(props: DataInputSectionProps) {
       : <div className="chart-grid">
         {chartSeries.map((series) => <DataSeriesChart key={series.key} title={series.title} unit={series.unit} xLabel="point index" accent={series.accent} points={seriesFor(series.key)} />)}
       </div>}
-  </section>;
+  </AnalysisSection>;
 }

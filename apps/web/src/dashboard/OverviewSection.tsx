@@ -1,4 +1,5 @@
 import type { InferenceResponse } from "../types";
+import { AnalysisSection, MetricTile, PredictionResultCard } from "../analysis/AnalysisUI";
 import { ConnectionPanel } from "./ConnectionPanel";
 import { StatusBadge, type StatusTone } from "./StatusBadge";
 
@@ -36,13 +37,7 @@ export function OverviewSection(props: OverviewSectionProps) {
           ? "Everything is ready. Run the analysis."
           : "Generate insights for this result, or analyze another dataset.";
 
-  return <section className="dash-section" id="overview" aria-labelledby="overview-heading">
-    <div className="dash-section__head">
-      <div>
-        <p className="eyebrow">Overview</p>
-        <h2 id="overview-heading">Battery health analysis</h2>
-      </div>
-    </div>
+  return <AnalysisSection id="overview" eyebrow="Overview" title="Battery health analysis" description="Connect securely, add a supported diagnostic curve, validate it, and run the SOH analysis.">
 
     <ConnectionPanel connected={connected} accessCode={props.accessCode} onAccessCodeChange={props.onAccessCodeChange} onConnect={props.onConnect} />
 
@@ -57,12 +52,12 @@ export function OverviewSection(props: OverviewSectionProps) {
 
     {result && <>
       <h3 className="dash-subtitle mono">Latest result</h3>
-      <div className="metric-grid">
-        <article className="metric-card">
+      <div className="analysis-result-grid">
+        <PredictionResultCard>
           <p className="metric-card__id mono">{result.cell_id} · {result.source_checkpoint} → {result.target_checkpoint}</p>
-          <p className="metric-card__value mono">{result.predicted_soh.toFixed(2)}<span className="metric-card__unit">% estimated state of health</span></p>
-        </article>
+          <MetricTile label="Predicted SOH" value={`${result.predicted_soh.toFixed(2)}%`} unit="Estimated state of health" primary />
+        </PredictionResultCard>
       </div>
     </>}
-  </section>;
+  </AnalysisSection>;
 }
